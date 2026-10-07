@@ -1560,18 +1560,28 @@ function buildCoverage(r, jd) {
 // Tools/platforms specifically, distinct from core skills/languages/concepts — used only for
 // the "Technical Tool Match" line of the Job Match score.
 const TOOL_KEYS = new Set(['power bi', 'excel', 'sql', 'mysql', 'postgresql', 'sql server', 'tableau', 'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'git', 'github', 'jira', 'sap', 'sap mm', 'excel vba', 'dax', 'power query', 'linux', 'salesforce', 'figma', 'adobe photoshop', 'mongodb', 'firebase', 'ci/cd']);
+// Weighted average of whichever (ratio, weight) pairs are non-null. Returns null if none are
+// available, so the caller can exclude the whole category instead of guessing a value for it.
+function combineRatios(pairs) {
+  let num = 0, den = 0;
+  pairs.forEach(([ratio, weight]) => { if (ratio != null) { num += ratio * weight; den += weight; } });
+  return den ? num / den : null;
+}
 function computeJobMatch(r, jd) {
   if (!jd || !(jd.required_skills.length || jd.preferred_skills.length || jd.responsibilities.length || jd.education_requirements.length)) return null;
   const JW = ATS_CONFIG.jobMatchWeights;
   const cov = buildCoverage(r, jd);
-  const reqRatio = cov.reqRatio != null ? cov.reqRatio : 1;
-  const prefRatio = cov.prefRatio != null ? cov.prefRatio : 1;
+  // IMPORTANT: a null ratio means this category genuinely could not be evaluated (e.g. the JD's
+  // wording wasn't recognized, or the JD didn't mention it at all) — it must stay null so it is
+  // excluded from the weighted score below, never silently treated as a full/perfect match.
+  const reqRatio = cov.reqRatio;
+  const prefRatio = cov.prefRatio;
   const toolRows = cov.coverageTable.filter(row => TOOL_KEYS.has(row.requirement));
   const toolRatio = toolRows.length ? toolRows.reduce((a, row) => a + (row.status === 'matched' ? 1 : 0), 0) / toolRows.length : null;
-  const expRatio = cov.expRatio != null ? cov.expRatio : 1;
-  const respRatio = cov.respRatio != null ? cov.respRatio : 1;
-  const expRespRatio = expRatio * 0.4 + respRatio * 0.6; // spec combines these into one "Experience/Responsibility Match" line
-  const eduCertRatio = (cov.eduRatio != null || cov.certRatio != null) ? (((cov.eduRatio != null ? cov.eduRatio : 1) * 0.6) + ((cov.certRatio != null ? cov.certRatio : 1) * 0.4)) : 1;
+  const expRatio = cov.expRatio;
+  const respRatio = cov.respRatio;
+  const expRespRatio = combineRatios([[expRatio, 0.4], [respRatio, 0.6]]); // spec combines these into one "Experience/Responsibility Match" line
+  const eduCertRatio = combineRatios([[cov.eduRatio, 0.6], [cov.certRatio, 0.4]]);
   const resumeTitleText = (r.headline || '') + ' ' + (r.experience[0] ? r.experience[0].title : '');
   const roleRatio = jd.job_title && tokenize(jd.job_title).length ? overlapScore(tokenize(jd.job_title), tokenize(resumeTitleText)) : null;
   const domainRatio = jd.domain_keywords.length ? overlapScore(jd.domain_keywords, tokenize(allResumeText(r))) : null;
