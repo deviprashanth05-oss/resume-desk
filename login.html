@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sign in · {{APP_NAME}}</title>
+<meta name="theme-color" content="#0F1B33">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='2' width='24' height='28' rx='4' fill='%230F1B33'/%3E%3Crect x='9' y='9' width='14' height='4' rx='2' fill='%23FFE066'/%3E%3Crect x='9' y='16' width='14' height='2.5' rx='1.2' fill='%23fff' opacity='.75'/%3E%3Crect x='9' y='21' width='9' height='2.5' rx='1.2' fill='%23fff' opacity='.75'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E8ECF3; --panel:#F7F9FC; --panel2:#FFFFFF; --ink:#0F1B33; --muted:#586580; --line:#D3DAE6;
+  --accent:#2848D9; --accent-ink:#FFFFFF; --tint:#E8EDFC; --hl:#FFE066;
+  --ok:#157347; --warn:#985000; --bad:#B3261E; --dots:#CDD5E3;
+  --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Tamil","Noto Sans Devanagari","Noto Sans",Arial,sans-serif;
+  --serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){--bg:#0C1220;--panel:#131A2A;--panel2:#1A2336;--ink:#E8EDF7;--muted:#9AA7BF;--line:#28334A;--accent:#8EA5FF;--accent-ink:#0C1220;--tint:#1E2947;--ok:#5FD39A;--warn:#F0B35A;--bad:#FF8A80;--dots:#1E283C}
+}
+:root[data-theme="dark"]{--bg:#0C1220;--panel:#131A2A;--panel2:#1A2336;--ink:#E8EDF7;--muted:#9AA7BF;--line:#28334A;--accent:#8EA5FF;--accent-ink:#0C1220;--tint:#1E2947;--ok:#5FD39A;--warn:#F0B35A;--bad:#FF8A80;--dots:#1E283C}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:10px 16px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.btn:hover:not(:disabled){filter:brightness(1.07)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.sm{padding:6px 12px;font-size:13.5px;border-radius:9px}
+.btn.lg{padding:12px 20px;font-size:15.5px;border-radius:12px}
+.btn.ghost{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+.btn.ghost:hover:not(:disabled){border-color:var(--accent);filter:none}
+.btn.danger{background:var(--bad);color:#fff}
+.field{display:flex;flex-direction:column;gap:5px;margin:0 0 14px}
+.field label{font-size:13.5px;font-weight:500}
+.field input,.field select,.field textarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;outline:0}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.field small{color:var(--muted);font-size:12.5px}
+.err{color:var(--bad);font-size:13.5px;margin:0 0 12px}
+.logo{display:inline-flex;align-items:center;gap:10px;color:inherit;text-decoration:none}
+.logo span{font:400 25px/1 var(--serif);letter-spacing:.005em}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 15px;border-radius:12px;font-size:14px;max-width:90vw;z-index:50;box-shadow:0 12px 30px -10px rgba(0,0,0,.5)}
+dialog{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--ink);padding:20px;width:min(520px,92vw)}
+dialog::backdrop{background:rgba(10,15,28,.55)}
+dialog h3{margin:0 0 4px;font:400 26px/1.1 var(--serif)}
+dialog .dsc{margin:0 0 14px;color:var(--muted);font-size:13.5px}
+dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+
+.wrap{min-height:100%;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}
+.brandside{background:#0F1B33;color:#E8EDF7;padding:36px 48px 40px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.brandside .mid{margin:auto 0;padding-bottom:70px;position:relative;z-index:1}
+.brandside .logo{color:#fff}
+.brandside h1{font:400 clamp(40px,4.4vw,60px)/1.02 var(--serif);margin:0 0 16px;max-width:14ch}
+.brandside p.lead{color:#AEBBD3;font-size:16.5px;max-width:42ch;margin:0}
+.pts{list-style:none;margin:28px 0 0;padding:0;max-width:400px;display:flex;flex-direction:column;gap:10px;color:#C9D4E8;font-size:14.5px}
+.pts li{display:flex;gap:10px;align-items:flex-start}
+.pts li::before{content:"";flex:none;width:14px;height:10px;margin-top:7px;border-radius:2px;background:#FFE066}
+.paper-art{position:absolute;right:-90px;bottom:-110px;width:300px;background:#fff;color:#111;border-radius:6px;padding:24px 26px 34px;transform:rotate(4deg);font:12px/1.4 Arial,sans-serif;box-shadow:0 30px 60px -20px rgba(0,0,0,.6);opacity:.96}
+.paper-art .n{font:700 19px/1.1 "Times New Roman",serif;text-align:center}
+.paper-art .h{font:700 10.5px/1 "Times New Roman",serif;text-transform:uppercase;border-bottom:1.5px solid #111;padding-bottom:3px;margin:13px 0 6px}
+.paper-art .t{font-family:"Times New Roman",serif;font-size:12.5px}
+.paper-art .l{height:6px;border-radius:3px;background:#DDE2EA;margin:8px 0}
+.paper-art mark{background:linear-gradient(#FFE066,#FFE066) no-repeat left/0 100%;color:inherit;padding:0 .12em;margin:0 -.12em;border-radius:.15em;animation:sweep .9s ease-out 1s forwards}
+@keyframes sweep{to{background-size:100% 100%}}
+@media (prefers-reduced-motion: reduce){.paper-art mark{animation:none;background-size:100% 100%}}
+.formside{display:flex;align-items:center;justify-content:center;padding:32px 24px}
+.card{width:min(420px,100%)}
+.mlogo{display:none;margin-bottom:22px;color:var(--ink)}
+.card h2{font:400 34px/1.05 var(--serif);margin:0 0 6px}
+.card .sub{margin:0 0 20px;color:var(--muted)}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:var(--panel2);margin-bottom:20px}
+.seg button{background:none;border:0;padding:9px;font-weight:500;color:var(--muted)}
+.seg button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.pw{position:relative}
+.pw input{padding-right:64px}
+.pw button{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--muted);font-size:13px;padding:6px 8px;border-radius:7px}
+.pw button:hover{color:var(--ink);background:var(--tint)}
+.consent{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--muted);margin:0 0 16px}
+.consent input{margin-top:3px;width:18px;height:18px;flex:none}
+.consent a{color:var(--accent)}
+.card .btn{width:100%}
+.help{margin:18px 0 0;font-size:13.5px;color:var(--muted);text-align:center}
+.banner{background:var(--tint);border-radius:10px;padding:9px 12px;font-size:13.5px;margin:0 0 16px}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}.brandside{display:none}.mlogo{display:inline-flex}.formside{align-items:flex-start;padding-top:48px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="brandside">
+    <a class="logo" href="/login"><svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><rect x="4" y="2" width="24" height="28" rx="4" fill="#fff"/><rect x="9" y="9" width="14" height="4" rx="2" fill="#FFE066"/><rect x="9" y="16" width="14" height="2.5" rx="1.2" fill="#0F1B33" opacity=".7"/><rect x="9" y="21" width="9" height="2.5" rx="1.2" fill="#0F1B33" opacity=".7"/></svg><span>{{APP_NAME}}</span></a>
+    <div class="mid">
+      <h1>Your resume, built by talking.</h1>
+      <p class="lead">Upload your old resume or describe your work in Tamil, Tanglish, English or Hindi. Get a clean, ATS-friendly resume in minutes.</p>
+      <ul class="pts"><li>Every AI change is highlighted, so you stay in control</li><li>Keep several resumes, one for each kind of job</li><li>Download as PDF or Word</li></ul>
+    </div>
+    <div class="paper-art" aria-hidden="true"><div class="n">Priya Sharma</div><div class="h">Skills</div><div class="t">SQL, Power BI, Excel, <mark>Python</mark></div><div class="h">Experience</div><div class="l" style="width:92%"></div><div class="l" style="width:76%"></div><div class="l" style="width:84%"></div></div>
+  </section>
+  <section class="formside">
+    <div class="card">
+      <a class="logo mlogo" href="/login"><svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><rect x="4" y="2" width="24" height="28" rx="4" fill="currentColor"/><rect x="9" y="9" width="14" height="4" rx="2" fill="#FFE066"/><rect x="9" y="16" width="14" height="2.5" rx="1.2" fill="#fff" opacity=".75"/><rect x="9" y="21" width="9" height="2.5" rx="1.2" fill="#fff" opacity=".75"/></svg><span>{{APP_NAME}}</span></a>
+      <div class="banner" id="ann" hidden></div>
+      <h2 id="title">Welcome back</h2>
+      <p class="sub" id="sub">Sign in to open your saved resumes.</p>
+      <div class="seg" role="tablist" id="seg"><button role="tab" id="tIn" aria-selected="true" type="button">Sign in</button><button role="tab" id="tUp" aria-selected="false" type="button">Create account</button></div>
+      <div id="formErr" class="err" role="alert" hidden></div>
+      <div id="closed" class="banner" hidden>New sign-ups are closed right now. If you already have an account, sign in.</div>
+      <form id="f" novalidate>
+        <div class="field" id="nameF" hidden><label for="name">Your name</label><input id="name" name="name" autocomplete="name" maxlength="80"></div>
+        <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" inputmode="email" required></div>
+        <div class="field"><label for="pw">Password</label><div class="pw"><input id="pw" name="password" type="password" autocomplete="current-password" required><button type="button" id="showpw" aria-label="Show password">Show</button></div><small id="pwHelp" hidden>At least 8 characters.</small></div>
+        <label class="consent" id="consentF" hidden><input type="checkbox" id="consent"><span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>. My resume text is processed by an AI service to make edits.</span></label>
+        <button class="btn lg" id="go" type="submit">Sign in</button>
+      </form>
+      <p class="help" id="help">Forgot your password? Ask {{SUPPORT_EMAIL}} to reset it.</p>
+    </div>
+  </section>
+</div>
+<div id="toast" role="status" hidden></div>
+<script>
+const $ = s => document.querySelector(s);
+let mode = 'in', cfg = { signupsOpen: true };
+function setMode(m) {
+  mode = m; const up = m === 'up';
+  $('#tIn').setAttribute('aria-selected', String(!up)); $('#tUp').setAttribute('aria-selected', String(up));
+  $('#title').textContent = up ? 'Create your account' : 'Welcome back';
+  $('#sub').textContent = up ? 'Free to start. Your resumes are saved to your account.' : 'Sign in to open your saved resumes.';
+  $('#nameF').hidden = !up; $('#consentF').hidden = !up; $('#pwHelp').hidden = !up; $('#help').hidden = up;
+  $('#pw').autocomplete = up ? 'new-password' : 'current-password'; $('#go').textContent = up ? 'Create account' : 'Sign in';
+  $('#formErr').hidden = true; $('#closed').hidden = !(up && !cfg.signupsOpen);
+  $('#go').disabled = up && !cfg.signupsOpen;
+  history.replaceState(null, '', up ? '?mode=signup' : location.pathname);
+}
+$('#tIn').onclick = () => setMode('in'); $('#tUp').onclick = () => setMode('up');
+$('#showpw').onclick = () => { const p = $('#pw'), s = p.type === 'password'; p.type = s ? 'text' : 'password'; $('#showpw').textContent = s ? 'Hide' : 'Show'; $('#showpw').setAttribute('aria-label', s ? 'Hide password' : 'Show password'); };
+function showErr(m) { const e = $('#formErr'); e.textContent = m; e.hidden = false; }
+$('#f').addEventListener('submit', async ev => {
+  ev.preventDefault(); $('#formErr').hidden = true;
+  const email = $('#email').value.trim(), password = $('#pw').value, up = mode === 'up';
+  if (!email || !password) return showErr('Enter your email and password.');
+  if (up && password.length < 8) return showErr('Password must be at least 8 characters.');
+  if (up && !$('#consent').checked) return showErr('Please accept the Terms and Privacy Policy to continue.');
+  $('#go').disabled = true; const label = $('#go').textContent; $('#go').textContent = 'Please wait…';
+  try {
+    const r = await fetch(up ? '/api/auth/signup' : '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'resume-desk' }, body: JSON.stringify({ email, password, name: $('#name').value, consent: $('#consent').checked }) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) { location.href = '/'; return; }
+    showErr(j.error || 'Something went wrong. Try again.');
+  } catch (e) { showErr('Cannot reach the server. Check your connection.'); }
+  $('#go').disabled = false; $('#go').textContent = label;
+});
+fetch('/api/config').then(r => r.json()).then(c => {
+  cfg = c; if (c.announcement) { $('#ann').textContent = c.announcement; $('#ann').hidden = false; }
+  if (!c.signupsOpen) $('#tUp').title = 'Sign-ups are closed';
+  if (!c.supportEmail) $('#help').textContent = 'Forgot your password? Ask the site administrator to reset it.';
+  setMode(new URLSearchParams(location.search).get('mode') === 'signup' ? 'up' : 'in');
+}).catch(() => setMode('in'));
+setMode('in');
+</script>
+</body>
+</html>

@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Admin · {{APP_NAME}}</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='2' width='24' height='28' rx='4' fill='%230F1B33'/%3E%3Crect x='9' y='9' width='14' height='4' rx='2' fill='%23FFE066'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E8ECF3; --panel:#F7F9FC; --panel2:#FFFFFF; --ink:#0F1B33; --muted:#586580; --line:#D3DAE6;
+  --accent:#2848D9; --accent-ink:#FFFFFF; --tint:#E8EDFC; --hl:#FFE066;
+  --ok:#157347; --warn:#985000; --bad:#B3261E; --dots:#CDD5E3;
+  --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Tamil","Noto Sans Devanagari","Noto Sans",Arial,sans-serif;
+  --serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){--bg:#0C1220;--panel:#131A2A;--panel2:#1A2336;--ink:#E8EDF7;--muted:#9AA7BF;--line:#28334A;--accent:#8EA5FF;--accent-ink:#0C1220;--tint:#1E2947;--ok:#5FD39A;--warn:#F0B35A;--bad:#FF8A80;--dots:#1E283C}
+}
+:root[data-theme="dark"]{--bg:#0C1220;--panel:#131A2A;--panel2:#1A2336;--ink:#E8EDF7;--muted:#9AA7BF;--line:#28334A;--accent:#8EA5FF;--accent-ink:#0C1220;--tint:#1E2947;--ok:#5FD39A;--warn:#F0B35A;--bad:#FF8A80;--dots:#1E283C}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:10px 16px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.btn:hover:not(:disabled){filter:brightness(1.07)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.sm{padding:6px 12px;font-size:13.5px;border-radius:9px}
+.btn.lg{padding:12px 20px;font-size:15.5px;border-radius:12px}
+.btn.ghost{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+.btn.ghost:hover:not(:disabled){border-color:var(--accent);filter:none}
+.btn.danger{background:var(--bad);color:#fff}
+.field{display:flex;flex-direction:column;gap:5px;margin:0 0 14px}
+.field label{font-size:13.5px;font-weight:500}
+.field input,.field select,.field textarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;outline:0}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.field small{color:var(--muted);font-size:12.5px}
+.err{color:var(--bad);font-size:13.5px;margin:0 0 12px}
+.logo{display:inline-flex;align-items:center;gap:10px;color:inherit;text-decoration:none}
+.logo span{font:400 25px/1 var(--serif);letter-spacing:.005em}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 15px;border-radius:12px;font-size:14px;max-width:90vw;z-index:50;box-shadow:0 12px 30px -10px rgba(0,0,0,.5)}
+dialog{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--ink);padding:20px;width:min(520px,92vw)}
+dialog::backdrop{background:rgba(10,15,28,.55)}
+dialog h3{margin:0 0 4px;font:400 26px/1.1 var(--serif)}
+dialog .dsc{margin:0 0 14px;color:var(--muted);font-size:13.5px}
+dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+
+.app{min-height:100%;display:grid;grid-template-columns:220px minmax(0,1fr)}
+.side{background:var(--panel);border-right:1px solid var(--line);padding:16px 12px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh;height:100dvh}
+.side .logo{padding:4px 8px 14px}
+.side .tag{font-size:12px;color:var(--muted);padding:0 8px 10px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{background:none;border:0;text-align:left;padding:9px 10px;border-radius:9px;color:var(--muted);font-weight:500}
+.nav button:hover{background:var(--tint);color:var(--ink)}
+.nav button[aria-current="page"]{background:var(--ink);color:var(--bg)}
+.side .sp{flex:1}
+.side a.back,.side button.out{color:var(--muted);font-size:14px;text-decoration:none;padding:8px 10px;border-radius:9px;background:none;border:0;text-align:left}
+.side a.back:hover,.side button.out:hover{background:var(--tint);color:var(--ink)}
+main{padding:26px 30px 60px;min-width:0;max-width:1180px}
+h1{font:400 38px/1.05 var(--serif);margin:0 0 4px}
+.lead{color:var(--muted);margin:0 0 22px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:22px}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.stat .k{font-size:13px;color:var(--muted)}
+.stat .v{font:600 28px/1.15 var(--sans);font-variant-numeric:tabular-nums;margin-top:4px}
+.stat .n{font-size:12.5px;color:var(--muted);margin-top:2px}
+.panel{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px}
+.panel h2{font:400 24px/1.1 var(--serif);margin:0 0 4px}
+.panel .sub{margin:0 0 12px;color:var(--muted);font-size:13.5px}
+.two{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px}
+.chart{width:100%;height:auto;display:block}
+.chart rect.b{fill:var(--accent)}
+.chart rect.b:hover{fill:var(--ink)}
+.chart text{fill:var(--muted);font-size:11px}
+.chart line{stroke:var(--line)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:12.5px;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover{background:var(--tint)}
+td small{display:block;color:var(--muted);font-size:12.5px}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto}
+.badge{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.badge.admin{color:var(--accent);border-color:var(--accent)}
+.badge.off{color:var(--bad);border-color:var(--bad)}
+.badge.on{color:var(--ok);border-color:var(--ok)}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.bar input[type=search],.bar select{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:15px;outline:0}
+.bar input[type=search]{flex:1;min-width:200px}
+.bar input:focus,.bar select:focus{border-color:var(--accent)}
+.pager{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:12px;color:var(--muted);font-size:13.5px}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.list li{display:flex;justify-content:space-between;gap:10px}
+.list li span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.form{max-width:520px}
+.form .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.sw{display:flex;gap:10px;align-items:center;margin:0 0 16px}
+.sw input{width:20px;height:20px}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 12px;font-size:14px;margin:0 0 14px}
+.kv dt{color:var(--muted)}.kv dd{margin:0}
+.temp{background:var(--tint);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:14px}
+.temp code{font-size:16px;font-weight:600;user-select:all;word-break:break-all}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.hr{height:1px;background:var(--line);margin:14px 0}
+.ok-msg{color:var(--ok);font-size:13.5px;margin-left:8px}
+.empty{color:var(--muted);padding:18px 4px}
+.top{display:none}
+@media (max-width:820px){
+  .app{grid-template-columns:1fr}
+  .side{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:10px 12px}
+  .side .logo{padding:0 8px 0 0}.side .tag{display:none}.nav{flex-direction:row;flex-wrap:wrap}.side .sp{display:none}
+  main{padding:18px 14px 50px}.two{grid-template-columns:1fr}.form .grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <a class="logo" href="/admin"><svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect x="4" y="2" width="24" height="28" rx="4" fill="currentColor"/><rect x="9" y="9" width="14" height="4" rx="2" fill="#FFE066"/><rect x="9" y="16" width="14" height="2.5" rx="1.2" fill="#fff" opacity=".75"/><rect x="9" y="21" width="9" height="2.5" rx="1.2" fill="#fff" opacity=".75"/></svg><span>{{APP_NAME}}</span></a>
+    <div class="tag">Admin dashboard</div>
+    <nav class="nav" id="nav">
+      <button data-p="overview" aria-current="page">Overview</button>
+      <button data-p="users">Users</button>
+      <button data-p="settings">Settings</button>
+      <button data-p="audit">Audit log</button>
+    </nav>
+    <span class="sp"></span>
+    <a class="back" href="/">Back to app</a>
+    <button class="out" id="out" type="button">Sign out</button>
+  </aside>
+  <main id="main" aria-live="polite"></main>
+</div>
+<dialog id="ud"><div id="udBody"></div></dialog>
+<div id="toast" role="status" hidden></div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const HDR = { 'Content-Type': 'application/json', 'X-Requested-With': 'resume-desk' };
+async function api(method, url, body) {
+  const r = await fetch(url, { method, headers: HDR, body: body === undefined ? undefined : JSON.stringify(body), credentials: 'same-origin' });
+  if (r.status === 401 || r.status === 403) { location.href = '/'; throw new Error('auth'); }
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Request failed'); return j;
+}
+let tt; const toast = m => { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(tt); tt = setTimeout(() => { t.hidden = true; }, 3800); };
+const num = n => Number(n || 0).toLocaleString('en-IN');
+const compact = n => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n || 0);
+const dt = ts => ts ? new Date(ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Never';
+const dtt = ts => ts ? new Date(ts).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Never';
+const ago = ts => { if (!ts) return 'Never'; const m = Math.round((Date.now() - ts) / 60000); if (m < 2) return 'Just now'; if (m < 60) return m + ' min ago'; const h = Math.round(m / 60); if (h < 24) return h + ' h ago'; const d = Math.round(h / 24); return d < 60 ? d + ' d ago' : dt(ts); };
+let page = 'overview', uState = { q: '', sort: 'created', page: 1 };
+
+function setPage(p) { page = p; document.querySelectorAll('#nav button').forEach(b => b.toggleAttribute('aria-current', b.dataset.p === p)); document.querySelectorAll('#nav button').forEach(b => { if (b.dataset.p === p) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }); ({ overview, users, settings, audit })[p](); }
+document.querySelectorAll('#nav button').forEach(b => b.onclick = () => setPage(b.dataset.p));
+$('#out').onclick = async () => { try { await api('POST', '/api/auth/logout'); } catch (e) {} location.href = '/login'; };
+
+/* ---------- overview ---------- */
+function chart(series) {
+  const W = 720, H = 190, pl = 34, pb = 22, pt = 8, max = Math.max(4, ...series.map(s => s.calls)), bw = (W - pl) / series.length;
+  const ticks = [0, Math.round(max / 2), max];
+  let g = ticks.map(t => { const y = pt + (H - pb - pt) * (1 - t / max); return `<line x1="${pl}" x2="${W}" y1="${y}" y2="${y}"/><text x="${pl - 6}" y="${y + 4}" text-anchor="end">${t}</text>`; }).join('');
+  g += series.map((s, i) => { const h = (H - pb - pt) * s.calls / max, x = pl + i * bw + 2; return `<rect class="b" x="${x}" y="${H - pb - h}" width="${Math.max(2, bw - 4)}" height="${Math.max(h, s.calls ? 1 : 0)}" rx="2"><title>${esc(s.day)}: ${s.calls} AI calls, ${num(s.tokens)} tokens</title></rect>`; }).join('');
+  [0, 14, 29].forEach(i => { const s = series[i]; if (s) g += `<text x="${pl + i * bw + bw / 2}" y="${H - 5}" text-anchor="${i === 0 ? 'start' : i === 29 ? 'end' : 'middle'}">${esc(s.day.slice(5))}</text>`; });
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="AI calls per day for the last 30 days">${g}</svg>`;
+}
+async function overview() {
+  $('#main').innerHTML = '<h1>Overview</h1><p class="lead">Loading…</p>';
+  const d = await api('GET', '/api/admin/stats'), s = d.stats;
+  const cost = s.cost30 == null ? '<div class="v">—</div><div class="n">Set token prices in Settings</div>' : `<div class="v">${esc(s.currency)}${s.cost30.toFixed(2)}</div><div class="n">Estimate, last 30 days</div>`;
+  $('#main').innerHTML = `<h1>Overview</h1><p class="lead">How your site is being used. Resume contents are never shown here.</p>
+  <div class="cards">
+    <div class="stat"><div class="k">Users</div><div class="v">${num(s.users)}</div><div class="n">${s.new7} new this week${s.disabled ? ' · ' + s.disabled + ' disabled' : ''}</div></div>
+    <div class="stat"><div class="k">Active this week</div><div class="v">${num(s.active7)}</div><div class="n">signed in or used the app</div></div>
+    <div class="stat"><div class="k">Resumes saved</div><div class="v">${num(s.resumes)}</div><div class="n">across all users</div></div>
+    <div class="stat"><div class="k">AI calls today</div><div class="v">${num(s.aiToday)}</div><div class="n">${num(s.ai7)} in 7 days</div></div>
+    <div class="stat"><div class="k">AI calls, 30 days</div><div class="v">${num(s.ai30)}</div><div class="n">${s.fail30} failed or empty</div></div>
+    <div class="stat"><div class="k">Tokens, 30 days</div><div class="v">${compact(s.tokIn30 + s.tokOut30)}</div><div class="n">${compact(s.tokIn30)} in · ${compact(s.tokOut30)} out</div></div>
+    <div class="stat"><div class="k">Estimated AI cost</div>${cost}</div>
+  </div>
+  <div class="two">
+    <div class="panel"><h2>AI calls per day</h2><p class="sub">Last 30 days. Hover a bar for details.</p>${chart(d.series)}</div>
+    <div>
+      <div class="panel"><h2>Heaviest users</h2><p class="sub">Most AI calls in 30 days.</p>${d.top.length ? '<ul class="list">' + d.top.map(u => `<li><span>${esc(u.name || u.email)}</span><span>${num(u.calls)}</span></li>`).join('') + '</ul>' : '<p class="empty">No AI usage yet.</p>'}</div>
+      <div class="panel"><h2>What people use AI for</h2><p class="sub">Last 30 days.</p>${d.kinds.length ? '<ul class="list">' + d.kinds.map(k => `<li><span>${({ chat: 'Chat edits', import: 'Reading uploaded resumes', match: 'Job match checks' })[k.kind] || esc(k.kind)}</span><span>${num(k.calls)}</span></li>`).join('') + '</ul>' : '<p class="empty">Nothing yet.</p>'}</div>
+    </div>
+  </div>`;
+}
+
+/* ---------- users ---------- */
+async function users() {
+  $('#main').innerHTML = `<h1>Users</h1><p class="lead">Click a person to manage their account.</p>
+  <div class="bar"><input type="search" id="q" placeholder="Search name or email" value="${esc(uState.q)}" aria-label="Search users">
+  <select id="sort" aria-label="Sort by"><option value="created">Newest first</option><option value="seen">Recently active</option><option value="ai">Most AI use</option><option value="resumes">Most resumes</option><option value="email">Email A to Z</option></select></div>
+  <div class="panel"><div class="scroll" id="tbl">Loading…</div><div class="pager" id="pager"></div></div>`;
+  $('#sort').value = uState.sort;
+  let t; $('#q').oninput = e => { clearTimeout(t); t = setTimeout(() => { uState.q = e.target.value; uState.page = 1; loadUsers(); }, 250); };
+  $('#sort').onchange = e => { uState.sort = e.target.value; uState.page = 1; loadUsers(); };
+  loadUsers();
+}
+let lastUsers = [];
+async function loadUsers() {
+  const d = await api('GET', '/api/admin/users?q=' + encodeURIComponent(uState.q) + '&sort=' + uState.sort + '&page=' + uState.page); lastUsers = d.users; window.defaultLimit = d.defaultLimit;
+  $('#tbl').innerHTML = d.users.length ? `<table><thead><tr><th>User</th><th>Status</th><th class="num">Resumes</th><th class="num">AI today</th><th class="num">AI 30d</th><th>Last active</th><th>Joined</th></tr></thead><tbody>` + d.users.map(u => `<tr class="click" tabindex="0" data-id="${u.id}"><td>${esc(u.name || '(no name)')}<small>${esc(u.email)}</small></td><td>${u.role === 'admin' ? '<span class="badge admin">Admin</span> ' : ''}<span class="badge ${u.status === 'active' ? 'on' : 'off'}">${u.status === 'active' ? 'Active' : 'Disabled'}</span></td><td class="num">${u.resumes}</td><td class="num">${u.aiToday}</td><td class="num">${u.ai30}</td><td>${esc(ago(u.last_seen || u.last_login))}</td><td>${esc(dt(u.created_at))}</td></tr>`).join('') + '</tbody></table>' : '<p class="empty">No users match.</p>';
+  const pages = Math.max(1, Math.ceil(d.total / d.per));
+  $('#pager').innerHTML = `<span>${num(d.total)} users</span><button class="btn ghost sm" id="pp" ${d.page <= 1 ? 'disabled' : ''}>Previous</button><span>Page ${d.page} of ${pages}</span><button class="btn ghost sm" id="pn" ${d.page >= pages ? 'disabled' : ''}>Next</button>`;
+  $('#pp').onclick = () => { uState.page--; loadUsers(); }; $('#pn').onclick = () => { uState.page++; loadUsers(); };
+  document.querySelectorAll('#tbl tr.click').forEach(tr => { const go = () => openUser(+tr.dataset.id); tr.onclick = go; tr.onkeydown = e => { if (e.key === 'Enter') go(); }; });
+}
+function openUser(id, note) {
+  const u = lastUsers.find(x => x.id === id); if (!u) return;
+  $('#udBody').innerHTML = `<h3>${esc(u.name || u.email)}</h3><p class="dsc">${esc(u.email)}</p>
+  <dl class="kv"><dt>Role</dt><dd>${u.role === 'admin' ? 'Admin' : 'User'}</dd><dt>Status</dt><dd>${u.status === 'active' ? 'Active' : 'Disabled'}</dd><dt>Joined</dt><dd>${esc(dt(u.created_at))}</dd><dt>Last active</dt><dd>${esc(ago(u.last_seen || u.last_login))}</dd><dt>Accepted terms</dt><dd>${esc(dt(u.consent_at))}</dd><dt>Resumes saved</dt><dd>${u.resumes}</dd><dt>AI calls</dt><dd>${u.aiToday} today · ${u.ai30} in 30 days · ${compact(u.tokens30)} tokens</dd></dl>
+  <div class="field"><label for="lim">Daily AI limit</label><input id="lim" type="number" min="0" max="100000" placeholder="Default (${window.defaultLimit})" value="${u.daily_limit == null ? '' : u.daily_limit}"><small>Leave blank to use the site default. Set 0 to block AI for this person.</small></div>
+  <div class="actions"><button class="btn sm" id="saveLim">Save limit</button>
+  <button class="btn ghost sm" id="tgStatus">${u.status === 'active' ? 'Disable account' : 'Enable account'}</button>
+  <button class="btn ghost sm" id="tgRole">${u.role === 'admin' ? 'Remove admin' : 'Make admin'}</button></div>
+  <div class="hr"></div>
+  <div class="actions"><button class="btn ghost sm" id="rst">Reset password</button><button class="btn danger sm" id="del">Delete user and data</button></div>
+  <div id="tempBox">${note || ''}</div>
+  <div class="actions" style="margin-top:14px;justify-content:flex-end"><button class="btn ghost sm" id="closeU">Close</button></div>`;
+  const d = $('#ud'); if (!d.open) d.showModal();
+  const act = async (fn, msg) => { try { await fn(); toast(msg); await loadUsers(); const nu = lastUsers.find(x => x.id === id); if (nu) openUser(id); else d.close(); } catch (e) { toast(e.message); } };
+  $('#closeU').onclick = () => d.close();
+  $('#saveLim').onclick = () => act(() => api('PATCH', '/api/admin/users/' + id, { daily_limit: $('#lim').value === '' ? null : $('#lim').value }), 'Limit saved');
+  $('#tgStatus').onclick = () => act(() => api('PATCH', '/api/admin/users/' + id, { status: u.status === 'active' ? 'disabled' : 'active' }), u.status === 'active' ? 'Account disabled' : 'Account enabled');
+  $('#tgRole').onclick = () => act(() => api('PATCH', '/api/admin/users/' + id, { role: u.role === 'admin' ? 'user' : 'admin' }), 'Role updated');
+  $('#rst').onclick = async () => { try { const r = await api('POST', '/api/admin/users/' + id + '/reset-password'); $('#tempBox').innerHTML = `<div class="temp">Temporary password (shown once):<br><code>${esc(r.temporaryPassword)}</code><br><small>Send it to the user privately. They must set a new password at their next sign-in, and they were signed out everywhere.</small></div>`; } catch (e) { toast(e.message); } };
+  let armed = false; $('#del').onclick = async () => { if (!armed) { armed = true; $('#del').textContent = 'Click again to delete forever'; setTimeout(() => { armed = false; if ($('#del')) $('#del').textContent = 'Delete user and data'; }, 4000); return; } try { await api('DELETE', '/api/admin/users/' + id); d.close(); toast('User deleted'); loadUsers(); } catch (e) { toast(e.message); } };
+}
+
+/* ---------- settings ---------- */
+async function settings() {
+  const s = await api('GET', '/api/admin/settings');
+  $('#main').innerHTML = `<h1>Settings</h1><p class="lead">Control sign-ups, AI limits and your cost estimate.</p>
+  <div class="panel form"><h2>Access</h2><p class="sub">Who can join and how much they can use.</p>
+    <label class="sw"><input type="checkbox" id="su" ${s.signups_open === '1' ? 'checked' : ''}><span>Allow new sign-ups</span></label>
+    <div class="grid"><div class="field"><label for="dl">Default AI edits per user per day</label><input id="dl" type="number" min="0" value="${esc(s.default_daily_limit)}"></div>
+    <div class="field"><label for="gc">Whole-site AI cap per day</label><input id="gc" type="number" min="0" value="${esc(s.global_daily_cap)}"><small>Stops your bill from running away. 0 means no cap.</small></div>
+    <div class="field"><label for="mr">Max resumes per user</label><input id="mr" type="number" min="1" value="${esc(s.max_resumes)}"></div></div>
+    <h2 style="margin-top:8px">Cost estimate</h2><p class="sub">Copy the per-million-token prices for your model from the Anthropic pricing page. Only used for the estimate on the Overview.</p>
+    <div class="grid"><div class="field"><label for="pi">Price per 1M input tokens</label><input id="pi" inputmode="decimal" value="${esc(s.price_in)}" placeholder="e.g. 3"></div><div class="field"><label for="po">Price per 1M output tokens</label><input id="po" inputmode="decimal" value="${esc(s.price_out)}" placeholder="e.g. 15"></div>
+    <div class="field"><label for="cu">Currency symbol</label><input id="cu" maxlength="4" value="${esc(s.currency)}"></div></div>
+    <h2 style="margin-top:8px">Announcement</h2><div class="field"><label for="an">Message shown at the top of the app and sign-in page</label><input id="an" maxlength="200" value="${esc(s.announcement)}" placeholder="Leave blank for none"></div>
+    <button class="btn" id="save">Save settings</button><span class="ok-msg" id="okm" hidden>Saved</span></div>`;
+  $('#save').onclick = async () => { try { await api('PUT', '/api/admin/settings', { signups_open: $('#su').checked, default_daily_limit: $('#dl').value, global_daily_cap: $('#gc').value, max_resumes: $('#mr').value, price_in: $('#pi').value, price_out: $('#po').value, currency: $('#cu').value, announcement: $('#an').value }); $('#okm').hidden = false; setTimeout(() => { $('#okm').hidden = true; }, 2500); } catch (e) { toast(e.message); } };
+}
+
+/* ---------- audit ---------- */
+async function audit() {
+  const rows = await api('GET', '/api/admin/audit');
+  $('#main').innerHTML = `<h1>Audit log</h1><p class="lead">The last 100 admin actions.</p><div class="panel"><div class="scroll">${rows.length ? '<table><thead><tr><th>When</th><th>Admin</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead><tbody>' + rows.map(r => `<tr><td>${esc(dtt(r.ts))}</td><td>${esc(r.admin_email)}</td><td>${esc(r.action)}</td><td>${esc(r.target)}</td><td>${esc(r.detail)}</td></tr>`).join('') + '</tbody></table>' : '<p class="empty">No admin actions yet.</p>'}</div></div>`;
+}
+setPage('overview');
+</script>
+</body>
+</html>
