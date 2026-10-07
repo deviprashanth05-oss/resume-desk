@@ -1,8 +1,17 @@
 {
-  "name": "resume-desk",
+  "name": "resume-desk-pro",
   "version": "1.0.0",
   "private": true,
-  "description": "Chat-based ATS resume builder",
-  "scripts": { "start": "node server.js" },
-  "engines": { "node": ">=18" }
+  "description": "Chat-based ATS resume builder with accounts, MySQL storage and an admin dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "create-admin": "node scripts/create-admin.js",
+    "backup": "node scripts/backup.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "express": "^4.21.0",
+    "mysql2": "^3.24.4"
+  }
 }
