@@ -2,6 +2,7 @@ const express = require('express'), fs = require('fs'), path = require('path'), 
 const db = require('./lib/db');
 const A = require('./lib/auth');
 const ai = require('./lib/ai');
+const billing = require('./lib/billing');
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const APP_NAME = process.env.APP_NAME || 'Resume Desk';
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || '';
@@ -72,7 +73,37 @@ app.post('/api/auth/login', ah(async (req, res) => {
 app.post('/api/auth/logout', ah(async (req, res) => { await A.destroySession(req, res); res.json({ ok: true }); }));
 
 /* ---------- account ---------- */
-app.get('/api/me', A.requireAuth, ah(async (req, res) => res.json({ user: publicUser(req.user), quota: await ai.quotaFor(req.user), announcement: (await db.getSettings()).announcement, tz: db.TZ })));
+app.get('/api/me', A.requireAuth, ah(async (req, res) => res.json({
+  user: publicUser(req.user), quota: await ai.quotaFor(req.user),
+  billing: req.user.role === 'admin' ? { plan: 'ADMIN', status: 'ACTIVE', unlimited: true, trialEditsRemaining: null, trialComplete: false } : await billing.getBillingStatus(req.user.id),
+  announcement: (await db.getSettings()).announcement, tz: db.TZ
+})));
+
+/* ---------- billing (Step 1: Free Trial + subscription status; Razorpay is Step 3) ---------- */
+app.get('/api/billing/status', A.requireAuth, ah(async (req, res) => res.json(
+  req.user.role === 'admin' ? { plan: 'ADMIN', status: 'ACTIVE', unlimited: true, trialEditsRemaining: null, trialComplete: false } : await billing.getBillingStatus(req.user.id)
+)));
+app.get('/api/billing/plans', A.requireAuth, ah(async (req, res) => res.json({ plans: [billing.PLANS.WEEKLY, billing.PLANS.MONTHLY] })));
+// Real payments (Razorpay) are Step 3 and are not implemented yet. This endpoint
+// exists so the upgrade modal has somewhere honest to send the click to, instead of
+// faking success. It must never create a subscription row itself.
+app.post('/api/billing/checkout', A.requireAuth, ah(async (req, res) => res.status(501).json({
+  code: 'not_implemented',
+  error: 'Online payment is not connected yet. ' + (SUPPORT_EMAIL ? 'Contact ' + SUPPORT_EMAIL + ' to upgrade for now.' : 'Please check back soon.')
+})));
+// The Job Match score itself is computed entirely client-side (deterministic JS,
+// never an AI call, see public/app.html's ats-engine) so there is no scoring API to
+// gate. This is the actual server-side gate for that feature (section 6: "if a Free
+// user calls the Job Match API directly, the server must reject") — the client asks
+// here before it ever runs that local computation, and the answer always comes from
+// the central feature matrix, never from anything the client sent.
+app.get('/api/billing/feature/:feature', A.requireAuth, ah(async (req, res) => {
+  const feature = billing.FEATURES[req.params.feature];
+  if (!feature) return res.status(400).json({ error: 'Unknown feature.' });
+  const bs = req.user.role === 'admin' ? { unlimited: true, trialEditsRemaining: null } : await billing.getBillingStatus(req.user.id);
+  const check = billing.canUseFeature(bs, feature);
+  res.json({ feature, allowed: check.allowed, reason: check.reason || null, billing: bs });
+}));
 app.post('/api/me/password', A.requireAuth, ah(async (req, res) => {
   const b = req.body || {}, cur = String(b.current || ''), next = String(b.next || '');
   if (A.limited('pw:' + req.user.id, 10, 900000)) return res.status(429).json({ error: 'Too many attempts. Try later.' });
@@ -104,8 +135,18 @@ const MAX_DATA = 500 * 1024;
 const sanitizeData = d => (d && typeof d === 'object' && !Array.isArray(d)) ? d : null;
 app.get('/api/resumes', A.requireAuth, ah(async (req, res) => res.json(await db.all('SELECT id,title,updated_at FROM resumes WHERE user_id=? ORDER BY updated_at DESC', [req.user.id]))));
 app.post('/api/resumes', A.requireAuth, ah(async (req, res) => {
-  const max = parseInt((await db.getSettings()).max_resumes, 10) || 15;
-  if ((await db.get('SELECT COUNT(*) c FROM resumes WHERE user_id=?', [req.user.id])).c >= max) return res.status(400).json({ error: 'You can keep up to ' + max + ' resumes. Delete one to add another.' });
+  const bs = req.user.role === 'admin' ? { unlimited: true, trialEditsRemaining: null } : await billing.getBillingStatus(req.user.id);
+  const max = bs.unlimited ? (parseInt((await db.getSettings()).max_resumes, 10) || 15) : 1;
+  const count = (await db.get('SELECT COUNT(*) c FROM resumes WHERE user_id=?', [req.user.id])).c;
+  if (count >= max) {
+    // Beyond the first resume this is really the MULTIPLE_RESUMES feature, same
+    // central matrix as everything else — a Free user is never allowed past 1
+    // regardless of this specific count check, a paid user up to the configured max.
+    const locked = !billing.canUseFeature(bs, billing.FEATURES.MULTIPLE_RESUMES).allowed;
+    return res.status(400).json(locked
+      ? { code: 'trial_one_resume', error: 'Your Free Trial includes one resume. Upgrade to Pro to continue creating and managing additional resumes.' }
+      : { error: 'You can keep up to ' + max + ' resumes. Delete one to add another.' });
+  }
   const b = req.body || {}, data = sanitizeData(b.data) || {}, str = JSON.stringify(data);
   if (str.length > MAX_DATA) return res.status(413).json({ error: 'Too large.' });
   const id = crypto.randomUUID(), now = Date.now(), title = clean(b.title).slice(0, 80) || 'Untitled resume';
@@ -136,7 +177,7 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 /* ---------- pages ---------- */
 function page(name) { return fs.readFileSync(path.join(PUB, name), 'utf8').replace(/\{\{APP_NAME\}\}/g, APP_NAME).replace(/\{\{SUPPORT_EMAIL\}\}/g, SUPPORT_EMAIL || 'the site administrator'); }
 const send = (res, name) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.setHeader('Cache-Control', 'no-store'); res.send(page(name)); };
-app.get('/', (req, res) => req.user ? send(res, 'app.html') : res.redirect('/login'));
+app.get('/', (req, res) => req.user ? send(res, 'app.html') : send(res, 'landing.html'));
 app.get('/login', (req, res) => req.user ? res.redirect('/') : send(res, 'login.html'));
 app.get('/admin', (req, res) => (req.user && req.user.role === 'admin') ? send(res, 'admin.html') : res.redirect(req.user ? '/' : '/login'));
 app.get('/privacy', (req, res) => send(res, 'privacy.html'));
