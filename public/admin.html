@@ -206,7 +206,10 @@ async function users() {
   loadUsers();
 }
 function planBadge(u) {
-  if (u.subPlan && u.subStatus === 'ACTIVE' && u.subEnd > Date.now()) return `<span class="badge pro">${esc(u.subPlan)}</span>`;
+  if (u.subPlan && u.subStatus === 'ACTIVE' && u.subEnd > Date.now()) {
+    const rem = u.subCreditsAllocated == null ? null : Math.max(0, u.subCreditsAllocated - (u.subCreditsUsed || 0));
+    return `<span class="badge pro">${esc(u.subPlan)}${rem == null ? '' : ' · ' + rem + ' left'}</span>`;
+  }
   return `<span class="badge">Free${u.trialEdits != null ? ' · ' + u.trialEdits + ' left' : ''}</span>`;
 }
 let lastUsers = [];
@@ -221,9 +224,10 @@ async function loadUsers() {
 const toDateInput = ms => ms ? new Date(ms).toISOString().slice(0, 10) : '';
 function subRow(u) {
   const active = u.subPlan && u.subStatus === 'ACTIVE' && u.subEnd > Date.now();
+  const rem = u.subCreditsAllocated == null ? null : Math.max(0, u.subCreditsAllocated - (u.subCreditsUsed || 0));
   return `<dt>Subscription</dt><dd>${u.subPlan ? esc(u.subPlan) + ' · ' + esc(u.subStatus) + (active ? '' : ' (not active)') : 'None — Free'}</dd>
-    ${u.subPlan ? `<dt>Billing period</dt><dd>${esc(dt(u.subStart))} → ${esc(dt(u.subEnd))}</dd><dt>Source</dt><dd>${esc(u.subSource || 'MANUAL')}${u.subId ? ' · ' + esc(u.subId) : ''}</dd>` : ''}
-    <dt>Free Trial edits left</dt><dd>${u.trialEdits == null ? '—' : u.trialEdits}</dd>`;
+    ${u.subPlan ? `<dt>Billing period</dt><dd>${esc(dt(u.subStart))} → ${esc(dt(u.subEnd))}</dd><dt>Source</dt><dd>${esc(u.subSource || 'MANUAL')}${u.subId ? ' · ' + esc(u.subId) : ''}</dd><dt>Plan credits</dt><dd>${u.subCreditsAllocated == null ? '—' : u.subCreditsAllocated + ' allocated · ' + (u.subCreditsUsed || 0) + ' used · ' + rem + ' remaining'}</dd>` : ''}
+    <dt>Free Trial credits left</dt><dd>${u.trialEdits == null ? '—' : u.trialEdits + ' of 2'}</dd>`;
 }
 function openUser(id, note) {
   const u = lastUsers.find(x => x.id === id); if (!u) return;
@@ -237,10 +241,12 @@ function openUser(id, note) {
   <h3 style="font-size:19px;margin:0 0 8px">Grant subscription</h3>
   <p class="dsc">Use this after verifying a real payment yourself (UPI, bank transfer, etc.) — it never charges the user, it only records the access you're granting.</p>
   <div class="grid">
-    <div class="field"><label for="subPlan">Plan</label><select id="subPlan"><option value="WEEKLY">Weekly — ₹349</option><option value="MONTHLY">Monthly — ₹549</option></select></div>
+    <div class="field"><label for="subPlan">Plan</label><select id="subPlan"><option value="WEEKLY">Weekly — ₹349 (30 credits)</option><option value="MONTHLY">Monthly — ₹649 (70 credits)</option></select></div>
     <div class="field"><label for="subStatus">Status</label><select id="subStatus"><option value="ACTIVE">Active</option><option value="EXPIRED">Expired</option></select></div>
     <div class="field"><label for="subStart">Start date</label><input id="subStart" type="date" value="${toDateInput(Date.now())}"></div>
     <div class="field"><label for="subEnd">End date</label><input id="subEnd" type="date" value="${toDateInput(Date.now() + 7 * 864e5)}"></div>
+    <div class="field"><label for="subCreditsAllocated">Credits allocated</label><input id="subCreditsAllocated" type="number" min="0" max="100000" placeholder="Default for plan"></div>
+    <div class="field"><label for="subCreditsUsed">Credits already used</label><input id="subCreditsUsed" type="number" min="0" max="100000" placeholder="0"></div>
   </div>
   <div class="actions"><button class="btn sm" id="grantSub">Grant / update subscription</button>${u.subPlan && u.subStatus === 'ACTIVE' ? '<button class="btn ghost sm" id="revokeSub">Remove subscription</button>' : ''}</div>
   <div class="hr"></div>
@@ -254,7 +260,9 @@ function openUser(id, note) {
   $('#tgStatus').onclick = () => act(() => api('PATCH', '/api/admin/users/' + id, { status: u.status === 'active' ? 'disabled' : 'active' }), u.status === 'active' ? 'Account disabled' : 'Account enabled');
   $('#tgRole').onclick = () => act(() => api('PATCH', '/api/admin/users/' + id, { role: u.role === 'admin' ? 'user' : 'admin' }), 'Role updated');
   $('#grantSub').onclick = () => act(() => api('POST', '/api/admin/users/' + id + '/subscription', {
-    plan: $('#subPlan').value, status: $('#subStatus').value, start_date: $('#subStart').value, end_date: $('#subEnd').value, source: 'ADMIN'
+    plan: $('#subPlan').value, status: $('#subStatus').value, start_date: $('#subStart').value, end_date: $('#subEnd').value, source: 'ADMIN',
+    credits_allocated: $('#subCreditsAllocated').value === '' ? undefined : $('#subCreditsAllocated').value,
+    credits_used: $('#subCreditsUsed').value === '' ? undefined : $('#subCreditsUsed').value
   }), 'Subscription saved');
   if ($('#revokeSub')) $('#revokeSub').onclick = () => act(() => api('POST', '/api/admin/users/' + id + '/subscription', { plan: 'NONE' }), 'Subscription removed');
   $('#rst').onclick = async () => { try { const r = await api('POST', '/api/admin/users/' + id + '/reset-password'); $('#tempBox').innerHTML = `<div class="temp">Temporary password (shown once):<br><code>${esc(r.temporaryPassword)}</code><br><small>Send it to the user privately. They must set a new password at their next sign-in, and they were signed out everywhere.</small></div>`; } catch (e) { toast(e.message); } };
@@ -269,13 +277,14 @@ async function settings() {
     <label class="sw"><input type="checkbox" id="su" ${s.signups_open === '1' ? 'checked' : ''}><span>Allow new sign-ups</span></label>
     <div class="grid"><div class="field"><label for="dl">Default AI edits per user per day</label><input id="dl" type="number" min="0" value="${esc(s.default_daily_limit)}"></div>
     <div class="field"><label for="gc">Whole-site AI cap per day</label><input id="gc" type="number" min="0" value="${esc(s.global_daily_cap)}"><small>Stops your bill from running away. 0 means no cap.</small></div>
-    <div class="field"><label for="mr">Max resumes per user</label><input id="mr" type="number" min="1" value="${esc(s.max_resumes)}"></div></div>
+    <div class="field"><label for="mr">Max resumes per user</label><input id="mr" type="number" min="1" value="${esc(s.max_resumes)}"></div>
+    <div class="field"><label for="fte">Free Trial AI credits (new accounts)</label><input id="fte" type="number" min="0" value="${esc(s.free_trial_edits)}"><small>Only applies to accounts created after you change this — existing users keep their current balance.</small></div></div>
     <h2 style="margin-top:8px">Cost estimate</h2><p class="sub">Copy the per-million-token prices for your model from the Anthropic pricing page. Only used for the estimate on the Overview.</p>
     <div class="grid"><div class="field"><label for="pi">Price per 1M input tokens</label><input id="pi" inputmode="decimal" value="${esc(s.price_in)}" placeholder="e.g. 3"></div><div class="field"><label for="po">Price per 1M output tokens</label><input id="po" inputmode="decimal" value="${esc(s.price_out)}" placeholder="e.g. 15"></div>
     <div class="field"><label for="cu">Currency symbol</label><input id="cu" maxlength="4" value="${esc(s.currency)}"></div></div>
     <h2 style="margin-top:8px">Announcement</h2><div class="field"><label for="an">Message shown at the top of the app and sign-in page</label><input id="an" maxlength="200" value="${esc(s.announcement)}" placeholder="Leave blank for none"></div>
     <button class="btn" id="save">Save settings</button><span class="ok-msg" id="okm" hidden>Saved</span></div>`;
-  $('#save').onclick = async () => { try { await api('PUT', '/api/admin/settings', { signups_open: $('#su').checked, default_daily_limit: $('#dl').value, global_daily_cap: $('#gc').value, max_resumes: $('#mr').value, price_in: $('#pi').value, price_out: $('#po').value, currency: $('#cu').value, announcement: $('#an').value }); $('#okm').hidden = false; setTimeout(() => { $('#okm').hidden = true; }, 2500); } catch (e) { toast(e.message); } };
+  $('#save').onclick = async () => { try { await api('PUT', '/api/admin/settings', { signups_open: $('#su').checked, default_daily_limit: $('#dl').value, global_daily_cap: $('#gc').value, max_resumes: $('#mr').value, free_trial_edits: $('#fte').value, price_in: $('#pi').value, price_out: $('#po').value, currency: $('#cu').value, announcement: $('#an').value }); $('#okm').hidden = false; setTimeout(() => { $('#okm').hidden = true; }, 2500); } catch (e) { toast(e.message); } };
 }
 
 /* ---------- audit ---------- */

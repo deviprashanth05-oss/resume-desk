@@ -422,7 +422,8 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
       </section>
 
       <section class="pane" id="paneAts">
-        <div class="card">
+        <div class="card locked-ov" id="atsCard">
+          <div class="lk-body" id="atsBody">
           <div class="scorehd">
             <div class="scorecol">
               <h3>ATS Compatibility</h3>
@@ -442,6 +443,12 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
           <div class="subsec"><h4>Parsing diagnostics</h4><div id="atsDiag"></div></div>
           <div class="subsec"><h4>Recommended fixes</h4><div id="atsFixes"></div></div>
           <p class="caveat">"ATS Compatibility Score" is a simulation, not a universal number — different ATS platforms parse resumes differently. This score is calculated from measurable resume parsing, extraction, structure, formatting and machine-readability checks, based only on your resume, never on a job description.</p>
+          </div>
+          <div class="lk-teaser" id="atsTeaser" hidden>
+            <h3 style="margin:0">ATS Compatibility</h3>
+            <p>Your free AI credits have been used. Upgrade to continue using ATS analysis on this resume.</p>
+            <button class="btn sm" type="button" id="atsUnlockBtn">Upgrade</button>
+          </div>
         </div>
         <div class="card locked-ov" id="jdCard">
           <div class="lk-body" id="jdBody">
@@ -1839,18 +1846,20 @@ function renderResumeMenu() {
   $('#rsTitle').textContent = st.rid ? autoTitle() : 'Loading\u2026';
   $('#rsList').innerHTML = st.resumes.map(r => `<button type="button" role="menuitem" data-id="${esc(r.id)}" aria-current="${r.id === st.rid}"><b>${esc(r.title)}</b><small>${esc(ago(r.updated_at))}</small></button>`).join('');
 }
-// Free Trial / subscription status. Always comes from the server (/api/me on load,
-// then refreshed from every /api/ai response's headers) — never decided locally,
+// Free Trial / subscription credit status. Always comes from the server (/api/me on
+// load, then refreshed from every /api/ai response's headers) — never decided locally,
 // so the UI can't drift from what the backend will actually enforce.
 function applyBillingHeaders(res) {
   const plan = res.headers.get('X-Billing-Plan');
   if (!plan) return;
-  const remHeader = res.headers.get('X-Trial-Remaining');
+  const remHeader = res.headers.get('X-Credits-Remaining');
+  const allocHeader = res.headers.get('X-Credits-Allocated');
   st.billing = {
     plan,
-    unlimited: plan !== 'FREE',
-    trialEditsRemaining: remHeader === '' || remHeader == null ? null : +remHeader,
-    trialComplete: res.headers.get('X-Trial-Complete') === '1'
+    unlimited: plan === 'ADMIN',
+    isPaid: res.headers.get('X-Is-Paid') === '1',
+    creditsRemaining: remHeader === '' || remHeader == null ? null : +remHeader,
+    creditsAllocated: allocHeader === '' || allocHeader == null ? null : +allocHeader,
   };
   renderBilling(); applyLockState();
 }
@@ -1858,14 +1867,31 @@ function renderBilling() {
   const q = $('#quota'); if (!q || !st.billing) return;
   const b = st.billing;
   q.classList.remove('low', 'trial-done', 'pro');
-  if (b.unlimited) { q.textContent = b.plan === 'ADMIN' ? 'Admin' : 'Pro — Unlimited'; q.title = 'Unlimited AI resume editing.'; q.classList.add('pro'); }
-  else if (b.trialComplete) { q.textContent = 'Free Trial Complete'; q.title = 'Upgrade to keep editing with AI.'; q.classList.add('trial-done'); }
-  else { q.textContent = 'Free Trial · ' + b.trialEditsRemaining + ' edit' + (b.trialEditsRemaining === 1 ? '' : 's') + ' remaining'; q.title = 'Free Trial edits left. Upgrade for unlimited AI editing.'; q.classList.toggle('low', b.trialEditsRemaining <= 1); }
+  const exhausted = !b.unlimited && b.creditsRemaining != null && b.creditsRemaining <= 0;
+  if (b.unlimited) { q.textContent = 'Admin'; q.title = 'Admin access — no credit limit.'; q.classList.add('pro'); }
+  else if (exhausted) {
+    q.textContent = b.isPaid ? (b.plan === 'WEEKLY' ? 'Weekly · 0 AI Credits' : 'Monthly · 0 AI Credits') : 'Free Trial Ended';
+    q.title = b.isPaid ? "You've used all your AI credits for this plan." : 'Upgrade to keep editing with AI.';
+    q.classList.add('trial-done');
+  } else {
+    const label = b.isPaid ? (b.plan === 'WEEKLY' ? 'Weekly' : 'Monthly') : 'Free Trial';
+    q.textContent = label + ' · ' + b.creditsRemaining + ' AI Credit' + (b.creditsRemaining === 1 ? '' : 's');
+    q.title = 'AI credits remaining on your plan.';
+    q.classList.toggle('low', b.creditsRemaining <= 1);
+  }
 }
 function applyLockState() {
-  const locked = !!(st.billing && !st.billing.unlimited);
-  const teaser = $('#jdTeaser'); if (teaser) teaser.hidden = !locked;
-  const body = $('#jdBody'); if (body) body.classList.toggle('lk-body', locked);
+  const b = st.billing;
+  // Job Match (the JD panel) is a paid-plan-only feature regardless of credit balance —
+  // a Free user with trial credits left still can't use it.
+  const notPaid = !!(b && !b.unlimited && !b.isPaid);
+  const jdTeaser = $('#jdTeaser'); if (jdTeaser) jdTeaser.hidden = !notPaid;
+  const jdBody = $('#jdBody'); if (jdBody) jdBody.classList.toggle('lk-body', notPaid);
+  // ATS Compatibility is available to anyone (free or paid) as long as credits remain;
+  // it locks only once the active plan's credit pool is actually empty.
+  const exhausted = !!(b && !b.unlimited && b.creditsRemaining != null && b.creditsRemaining <= 0);
+  const atsTeaser = $('#atsTeaser'); if (atsTeaser) atsTeaser.hidden = !exhausted;
+  const atsBody = $('#atsBody'); if (atsBody) atsBody.classList.toggle('lk-body', exhausted);
 }
 async function loadPlans() {
   try { const r = await api('GET', '/api/billing/plans'); st.plans = r.plans; } catch (e) { st.plans = null; }
@@ -1873,18 +1899,21 @@ async function loadPlans() {
 function planCardHtml(p) {
   return `<div class="up-plan${p.recommended ? ' rec' : ''}">${p.recommended ? '<span class="tag">Recommended</span>' : ''}
     <h4>${esc(p.label)}</h4><div class="price">${esc(p.currency)}${p.price}<small> / ${p.label === 'Weekly' ? 'week' : 'month'}</small></div>
+    <p class="sub" style="margin:2px 0 8px">${p.credits} AI credits</p>
     <ul>${p.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
     <button class="btn${p.recommended ? '' : ' ghost'}" type="button" data-plan="${esc(p.plan)}">Choose ${esc(p.label)}</button></div>`;
 }
 async function openUpgradeModal(reason) {
-  $('#upTitle').textContent = reason === 'locked' ? 'Unlock Unlimited Resume AI' : 'Your Free Trial is complete';
+  $('#upTitle').textContent = reason === 'locked' ? 'Unlock This Feature' : (reason === 'credits' ? "You've used all your AI credits" : 'Your Free Trial Is Over');
   $('#upSub').textContent = reason === 'locked'
-    ? 'That feature is part of Resume Desk Pro. Upgrade to unlock Job Description matching and unlimited AI chat.'
-    : "You've used all your free resume editing credits. Upgrade to continue editing your resume with unlimited AI chat and resume modifications.";
+    ? 'That feature is part of a paid ITC Resume plan. Upgrade to unlock Job Description matching and more AI credits.'
+    : reason === 'credits'
+    ? "You've used all of your AI credits for this plan. Upgrade or renew to keep editing and analyzing your resume."
+    : "You've used both of your free AI credits. Upgrade ITC Resume to continue improving your resume.";
   if (!st.plans) await loadPlans();
   $('#upGrid').innerHTML = (st.plans || [
-    { plan: 'WEEKLY', label: 'Weekly', price: 349, currency: '₹', features: ['Unlimited AI chat', 'Unlimited edits', 'Job Description matching', 'Resume version history'] },
-    { plan: 'MONTHLY', label: 'Monthly', price: 549, currency: '₹', recommended: true, features: ['Unlimited AI chat', 'Unlimited edits', 'Job Description matching', 'Resume version history'] }
+    { plan: 'WEEKLY', label: 'Weekly', price: 349, currency: '₹', credits: 30, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Job Description matching', 'Resume version history'] },
+    { plan: 'MONTHLY', label: 'Monthly', price: 649, currency: '₹', credits: 70, recommended: true, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Job Description matching', 'Resume version history'] }
   ]).map(planCardHtml).join('');
   const d = $('#upgradeDlg'); if (d.showModal) d.showModal(); else d.setAttribute('open', '');
 }
@@ -1914,9 +1943,9 @@ async function acctAction(a) {
   else if (a === 'delacct') askForm({ title: 'Delete your account?', desc: 'This permanently deletes your account and all your resumes. This cannot be undone. Download your data first if you want a copy.', ok: 'Delete everything', danger: true, fields: [{ label: 'Enter your password to confirm', type: 'password', ac: 'current-password' }], submit: async v => { await api('DELETE', '/api/me', { password: v[0] }); goLogin(); } });
 }
 async function resumeAction(a) {
-  if (a === 'new') { try { await createResume(); } catch (e) { if (e.code === 'trial_one_resume') openUpgradeModal('locked'); else toast(e.message || 'Could not create a resume.'); } }
+  if (a === 'new') { try { await createResume(); } catch (e) { if (e.code === 'trial_one_resume') openUpgradeModal('locked'); else if (e.code === 'FREE_TRIAL_EXHAUSTED') openUpgradeModal('trial'); else toast(e.message || 'Could not create a resume.'); } }
   else if (a === 'rename') { const v = await askForm({ title: 'Rename resume', ok: 'Rename', fields: [{ label: 'Name', value: st.title, max: 80 }] }); if (v && v[0].trim()) { st.title = v[0].trim(); st.titleAuto = false; save(); renderResumeMenu(); } }
-  else if (a === 'dup') { try { await flush(); await createResume(st.title + ' (copy)', { ...payload().data, titleAuto: false, chat: [greetingMsg()] }); } catch (e) { if (e.code === 'trial_one_resume') openUpgradeModal('locked'); else toast(e.message || 'Could not duplicate.'); } }
+  else if (a === 'dup') { try { await flush(); await createResume(st.title + ' (copy)', { ...payload().data, titleAuto: false, chat: [greetingMsg()] }); } catch (e) { if (e.code === 'trial_one_resume') openUpgradeModal('locked'); else if (e.code === 'FREE_TRIAL_EXHAUSTED') openUpgradeModal('trial'); else toast(e.message || 'Could not duplicate.'); } }
   else if (a === 'del') {
     const id = st.rid, ok = await askForm({ title: 'Delete this resume?', desc: '"' + st.title + '" will be permanently deleted.', ok: 'Delete', danger: true });
     if (!ok) return;
@@ -1995,8 +2024,10 @@ const ERR = {
   quota_exceeded: 'You have used all your AI edits for today. They reset tomorrow. Your resume is saved, and you can still download it.',
   disabled: 'This account has been disabled. Please contact the admin.',
   too_large: 'That is too large. Use a smaller file or shorter text.',
-  trial_complete: "You've used all your free resume editing credits. Upgrade to continue editing with unlimited AI chat.",
-  locked_feature: 'Your Free Trial currently supports resume editing for color, format, and content changes. Upgrade to Pro for unlimited AI chat and advanced career features.'
+  trial_complete: "Your 2 free AI credits have been used. Upgrade to continue editing and analyzing your resume.",
+  FREE_TRIAL_EXHAUSTED: "Your 2 free AI credits have been used. Upgrade to continue editing and analyzing your resume.",
+  credits_exhausted: "You've used all of your AI credits for this plan. Renew or upgrade to keep editing.",
+  locked_feature: 'That feature is part of a paid ITC Resume plan. Upgrade to unlock it.'
 };
 const errCopy = e => ERR[e && e.code] || ERR.upstream_error;
 
@@ -2046,7 +2077,7 @@ async function withBusy(label, fn) {
   catch (e) {
     if (e && e.code === 'cancelled') st.chat.push({ role: 'note', text: 'Stopped.', local: true });
     else if (e && e.code === 'invalid_json' && e.text && !/^\s*[{`\[]/.test(e.text)) st.chat.push({ role: 'assistant', text: e.text.trim() });
-    else if (e && (e.code === 'trial_complete' || e.code === 'locked_feature')) { st.chat.push({ role: 'assistant', local: true, text: errCopy(e) }); openUpgradeModal(e.code === 'locked_feature' ? 'locked' : 'trial'); }
+    else if (e && (e.code === 'trial_complete' || e.code === 'FREE_TRIAL_EXHAUSTED' || e.code === 'credits_exhausted' || e.code === 'locked_feature')) { st.chat.push({ role: 'assistant', local: true, text: errCopy(e) }); openUpgradeModal(e.code === 'locked_feature' ? 'locked' : (e.code === 'credits_exhausted' ? 'credits' : 'trial')); }
     else { if (!e || !e.code) console.error(e); st.chat.push({ role: 'assistant', error: true, local: true, text: (e && e.code) ? errCopy(e) : (e && e.userMsg) || ERR.upstream_error }); }
   } finally { st.busy = false; st.ctl = null; stopTicker(); renderAll(); save(); }
 }
@@ -2109,10 +2140,20 @@ function localTemplateMatch(text) {
   if (/\b(classic|traditional)\b/.test(t)) return 'classic';
   return null;
 }
+// "undo that" / "revert" / "put it back" typed in chat uses the same local Undo
+// stack as the Undo button — never an AI call, so it never costs a credit.
+function localUndoMatch(text) {
+  return /\b(undo|revert|put it back|restore (the|my) (last|previous)|go back)\b/i.test(text);
+}
 async function send(text) {
   text = (text || '').trim();
   if (!text || st.busy) return;
   if (voice.on) stopVoice();
+  if (localUndoMatch(text) && st.prev.length) {
+    st.chat.push({ role: 'user', text }); $('#inp').value = ''; autosize(); setView('chat');
+    undo();
+    return;
+  }
   const accentHit = localAccentMatch(text);
   if (accentHit && accentHit.v !== st.accent) {
     st.chat.push({ role: 'user', text }); $('#inp').value = ''; autosize(); setView('chat');
@@ -2578,10 +2619,11 @@ function wire() {
     // alone, in case a subscription just changed in another tab.
     try { const r = await api('GET', '/api/billing/feature/JOB_MATCH'); st.billing = Object.assign({}, st.billing, r.billing); renderBilling(); applyLockState(); if (!r.allowed) { openUpgradeModal('locked'); return; } }
     catch (e) { /* if the check itself fails, fall through to the cached state below */ }
-    if (st.billing && !st.billing.unlimited) { openUpgradeModal('locked'); return; }
+    if (st.billing && !st.billing.unlimited && !st.billing.isPaid) { openUpgradeModal('locked'); return; }
     analyzeMatch();
   });
   $('#jdUnlockBtn').addEventListener('click', () => openUpgradeModal('locked'));
+  const atsUnlockBtn = $('#atsUnlockBtn'); if (atsUnlockBtn) atsUnlockBtn.addEventListener('click', () => openUpgradeModal(st.billing && st.billing.isPaid ? 'credits' : 'trial'));
   $('#upCancel').addEventListener('click', closeUpgradeModal);
   $('#upGrid').addEventListener('click', async e => {
     const b = e.target.closest('button[data-plan]'); if (!b) return;
@@ -2614,7 +2656,10 @@ function wire() {
     $('#adminLink').hidden = me.user.role !== 'admin';
     if (me.announcement) { $('#ann').textContent = me.announcement; $('#ann').hidden = false; }
     st.resumes = await api('GET', '/api/resumes');
-    if (!st.resumes.length) await createResume(); else { applyLoaded(await api('GET', '/api/resumes/' + st.resumes[0].id)); renderAll(); renderResumeMenu(); }
+    if (!st.resumes.length) {
+      try { await createResume(); }
+      catch (e) { if (e.code === 'FREE_TRIAL_EXHAUSTED' || e.code === 'trial_one_resume') { $('#rsTitle').textContent = 'No resume yet'; openUpgradeModal(e.code === 'FREE_TRIAL_EXHAUSTED' ? 'trial' : 'locked'); } else throw e; }
+    } else { applyLoaded(await api('GET', '/api/resumes/' + st.resumes[0].id)); renderAll(); renderResumeMenu(); }
     st.availChecked = true; $('#prog').hidden = true; setView('chat');
     if (me.user.must_change) changePassword(true);
   } catch (e) { $('#prog').hidden = true; if (e.code !== 'unauthorized') { toast('Could not load your account. Refresh the page.'); $('#rsTitle').textContent = 'Error'; } }
