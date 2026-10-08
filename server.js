@@ -190,6 +190,9 @@ app.get('/login', (req, res) => req.user ? res.redirect('/') : send(res, 'login.
 app.get('/admin', (req, res) => (req.user && req.user.role === 'admin') ? send(res, 'admin.html') : res.redirect(req.user ? '/' : '/login'));
 app.get('/privacy', (req, res) => send(res, 'privacy.html'));
 app.get('/terms', (req, res) => send(res, 'terms.html'));
+// Single explicit static file (no directory listing / traversal surface) — the UPI
+// QR code shown in the upgrade flow's "Pay via UPI" screen.
+app.get('/assets/upi-qr.png', (req, res) => { res.setHeader('Cache-Control', 'public, max-age=86400'); res.sendFile(path.join(PUB, 'assets', 'upi-qr.png')); });
 app.use((req, res) => res.status(404).type('text').send('Not found'));
 app.use((err, req, res, next) => { console.error(err); if (res.headersSent) return res.end(); res.status(err.status || 500).json({ code: 'upstream_error', error: err.type === 'entity.too.large' ? 'Too large' : 'Server error' }); });
 
