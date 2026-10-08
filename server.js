@@ -4,7 +4,7 @@ const A = require('./lib/auth');
 const ai = require('./lib/ai');
 const billing = require('./lib/billing');
 const PORT = parseInt(process.env.PORT || '3000', 10);
-const APP_NAME = process.env.APP_NAME || 'Resume Desk';
+const APP_NAME = process.env.APP_NAME || 'ITC Resume';
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || '';
 const PUB = path.join(__dirname, 'public');
 const ah = fn => (req, res, next) => fn(req, res, next).catch(next);
@@ -72,16 +72,18 @@ app.post('/api/auth/login', ah(async (req, res) => {
 }));
 app.post('/api/auth/logout', ah(async (req, res) => { await A.destroySession(req, res); res.json({ ok: true }); }));
 
+const ADMIN_BILLING = { plan: 'ADMIN', status: 'ACTIVE', unlimited: true, isPaid: true, creditsAllocated: null, creditsUsed: 0, creditsRemaining: null, trialComplete: false, maxResumes: null, endDate: null };
+
 /* ---------- account ---------- */
 app.get('/api/me', A.requireAuth, ah(async (req, res) => res.json({
   user: publicUser(req.user), quota: await ai.quotaFor(req.user),
-  billing: req.user.role === 'admin' ? { plan: 'ADMIN', status: 'ACTIVE', unlimited: true, trialEditsRemaining: null, trialComplete: false } : await billing.getBillingStatus(req.user.id),
+  billing: req.user.role === 'admin' ? ADMIN_BILLING : await billing.getBillingStatus(req.user.id),
   announcement: (await db.getSettings()).announcement, tz: db.TZ
 })));
 
-/* ---------- billing (Step 1: Free Trial + subscription status; Razorpay is Step 3) ---------- */
+/* ---------- billing: Free Trial (2 credits, once) + paid credit-pool subscriptions; Razorpay is a future step ---------- */
 app.get('/api/billing/status', A.requireAuth, ah(async (req, res) => res.json(
-  req.user.role === 'admin' ? { plan: 'ADMIN', status: 'ACTIVE', unlimited: true, trialEditsRemaining: null, trialComplete: false } : await billing.getBillingStatus(req.user.id)
+  req.user.role === 'admin' ? ADMIN_BILLING : await billing.getBillingStatus(req.user.id)
 )));
 app.get('/api/billing/plans', A.requireAuth, ah(async (req, res) => res.json({ plans: [billing.PLANS.WEEKLY, billing.PLANS.MONTHLY] })));
 // Real payments (Razorpay) are Step 3 and are not implemented yet. This endpoint
@@ -100,7 +102,7 @@ app.post('/api/billing/checkout', A.requireAuth, ah(async (req, res) => res.stat
 app.get('/api/billing/feature/:feature', A.requireAuth, ah(async (req, res) => {
   const feature = billing.FEATURES[req.params.feature];
   if (!feature) return res.status(400).json({ error: 'Unknown feature.' });
-  const bs = req.user.role === 'admin' ? { unlimited: true, trialEditsRemaining: null } : await billing.getBillingStatus(req.user.id);
+  const bs = req.user.role === 'admin' ? ADMIN_BILLING : await billing.getBillingStatus(req.user.id);
   const check = billing.canUseFeature(bs, feature);
   res.json({ feature, allowed: check.allowed, reason: check.reason || null, billing: bs });
 }));
@@ -119,7 +121,7 @@ app.get('/api/me/export', A.requireAuth, ah(async (req, res) => {
   const resumeRows = await db.all('SELECT id,title,data,created_at,updated_at FROM resumes WHERE user_id=?', [req.user.id]);
   const resumes = resumeRows.map(r => ({ ...r, data: JSON.parse(r.data || '{}') }));
   const usage = await db.all('SELECT ts,kind,input_tokens,output_tokens FROM ai_usage WHERE user_id=?', [req.user.id]);
-  res.setHeader('Content-Disposition', 'attachment; filename="my-resume-desk-data.json"');
+  res.setHeader('Content-Disposition', 'attachment; filename="my-itc-resume-data.json"');
   res.json({ exported_at: new Date().toISOString(), account: u, resumes, ai_usage: usage });
 }));
 app.delete('/api/me', A.requireAuth, ah(async (req, res) => {
@@ -135,8 +137,14 @@ const MAX_DATA = 500 * 1024;
 const sanitizeData = d => (d && typeof d === 'object' && !Array.isArray(d)) ? d : null;
 app.get('/api/resumes', A.requireAuth, ah(async (req, res) => res.json(await db.all('SELECT id,title,updated_at FROM resumes WHERE user_id=? ORDER BY updated_at DESC', [req.user.id]))));
 app.post('/api/resumes', A.requireAuth, ah(async (req, res) => {
-  const bs = req.user.role === 'admin' ? { unlimited: true, trialEditsRemaining: null } : await billing.getBillingStatus(req.user.id);
-  const max = bs.unlimited ? (parseInt((await db.getSettings()).max_resumes, 10) || 15) : 1;
+  const bs = req.user.role === 'admin' ? ADMIN_BILLING : await billing.getBillingStatus(req.user.id);
+  // A Free user whose 2 credits are gone cannot create (or re-create) a resume at
+  // all — this blocks the "delete it and start a new free trial" loophole outright,
+  // independent of how many resumes they currently have.
+  if (!bs.unlimited && !bs.isPaid && bs.creditsRemaining <= 0) {
+    return res.status(403).json({ code: 'FREE_TRIAL_EXHAUSTED', error: 'Your 2 free AI credits have been used. Upgrade to continue creating and editing resumes.' });
+  }
+  const max = bs.unlimited || bs.isPaid ? (parseInt((await db.getSettings()).max_resumes, 10) || 15) : 1;
   const count = (await db.get('SELECT COUNT(*) c FROM resumes WHERE user_id=?', [req.user.id])).c;
   if (count >= max) {
     // Beyond the first resume this is really the MULTIPLE_RESUMES feature, same
@@ -144,7 +152,7 @@ app.post('/api/resumes', A.requireAuth, ah(async (req, res) => {
     // regardless of this specific count check, a paid user up to the configured max.
     const locked = !billing.canUseFeature(bs, billing.FEATURES.MULTIPLE_RESUMES).allowed;
     return res.status(400).json(locked
-      ? { code: 'trial_one_resume', error: 'Your Free Trial includes one resume. Upgrade to Pro to continue creating and managing additional resumes.' }
+      ? { code: 'trial_one_resume', error: 'Your Free Trial includes one resume. Upgrade to continue creating and managing additional resumes.' }
       : { error: 'You can keep up to ' + max + ' resumes. Delete one to add another.' });
   }
   const b = req.body || {}, data = sanitizeData(b.data) || {}, str = JSON.stringify(data);
