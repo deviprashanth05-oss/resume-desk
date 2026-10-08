@@ -92,6 +92,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .badge.admin{color:var(--accent);border-color:var(--accent)}
 .badge.off{color:var(--bad);border-color:var(--bad)}
 .badge.on{color:var(--ok);border-color:var(--ok)}
+.badge.pro{color:var(--ok);border-color:var(--ok);font-weight:600}
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
 .bar input[type=search],.bar select{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:15px;outline:0}
 .bar input[type=search]{flex:1;min-width:200px}
@@ -204,23 +205,44 @@ async function users() {
   $('#sort').onchange = e => { uState.sort = e.target.value; uState.page = 1; loadUsers(); };
   loadUsers();
 }
+function planBadge(u) {
+  if (u.subPlan && u.subStatus === 'ACTIVE' && u.subEnd > Date.now()) return `<span class="badge pro">${esc(u.subPlan)}</span>`;
+  return `<span class="badge">Free${u.trialEdits != null ? ' · ' + u.trialEdits + ' left' : ''}</span>`;
+}
 let lastUsers = [];
 async function loadUsers() {
   const d = await api('GET', '/api/admin/users?q=' + encodeURIComponent(uState.q) + '&sort=' + uState.sort + '&page=' + uState.page); lastUsers = d.users; window.defaultLimit = d.defaultLimit;
-  $('#tbl').innerHTML = d.users.length ? `<table><thead><tr><th>User</th><th>Status</th><th class="num">Resumes</th><th class="num">AI today</th><th class="num">AI 30d</th><th>Last active</th><th>Joined</th></tr></thead><tbody>` + d.users.map(u => `<tr class="click" tabindex="0" data-id="${u.id}"><td>${esc(u.name || '(no name)')}<small>${esc(u.email)}</small></td><td>${u.role === 'admin' ? '<span class="badge admin">Admin</span> ' : ''}<span class="badge ${u.status === 'active' ? 'on' : 'off'}">${u.status === 'active' ? 'Active' : 'Disabled'}</span></td><td class="num">${u.resumes}</td><td class="num">${u.aiToday}</td><td class="num">${u.ai30}</td><td>${esc(ago(u.last_seen || u.last_login))}</td><td>${esc(dt(u.created_at))}</td></tr>`).join('') + '</tbody></table>' : '<p class="empty">No users match.</p>';
+  $('#tbl').innerHTML = d.users.length ? `<table><thead><tr><th>User</th><th>Status</th><th>Plan</th><th class="num">Resumes</th><th class="num">AI today</th><th class="num">AI 30d</th><th>Last active</th><th>Joined</th></tr></thead><tbody>` + d.users.map(u => `<tr class="click" tabindex="0" data-id="${u.id}"><td>${esc(u.name || '(no name)')}<small>${esc(u.email)}</small></td><td>${u.role === 'admin' ? '<span class="badge admin">Admin</span> ' : ''}<span class="badge ${u.status === 'active' ? 'on' : 'off'}">${u.status === 'active' ? 'Active' : 'Disabled'}</span></td><td>${planBadge(u)}</td><td class="num">${u.resumes}</td><td class="num">${u.aiToday}</td><td class="num">${u.ai30}</td><td>${esc(ago(u.last_seen || u.last_login))}</td><td>${esc(dt(u.created_at))}</td></tr>`).join('') + '</tbody></table>' : '<p class="empty">No users match.</p>';
   const pages = Math.max(1, Math.ceil(d.total / d.per));
   $('#pager').innerHTML = `<span>${num(d.total)} users</span><button class="btn ghost sm" id="pp" ${d.page <= 1 ? 'disabled' : ''}>Previous</button><span>Page ${d.page} of ${pages}</span><button class="btn ghost sm" id="pn" ${d.page >= pages ? 'disabled' : ''}>Next</button>`;
   $('#pp').onclick = () => { uState.page--; loadUsers(); }; $('#pn').onclick = () => { uState.page++; loadUsers(); };
   document.querySelectorAll('#tbl tr.click').forEach(tr => { const go = () => openUser(+tr.dataset.id); tr.onclick = go; tr.onkeydown = e => { if (e.key === 'Enter') go(); }; });
 }
+const toDateInput = ms => ms ? new Date(ms).toISOString().slice(0, 10) : '';
+function subRow(u) {
+  const active = u.subPlan && u.subStatus === 'ACTIVE' && u.subEnd > Date.now();
+  return `<dt>Subscription</dt><dd>${u.subPlan ? esc(u.subPlan) + ' · ' + esc(u.subStatus) + (active ? '' : ' (not active)') : 'None — Free'}</dd>
+    ${u.subPlan ? `<dt>Billing period</dt><dd>${esc(dt(u.subStart))} → ${esc(dt(u.subEnd))}</dd><dt>Source</dt><dd>${esc(u.subSource || 'MANUAL')}${u.subId ? ' · ' + esc(u.subId) : ''}</dd>` : ''}
+    <dt>Free Trial edits left</dt><dd>${u.trialEdits == null ? '—' : u.trialEdits}</dd>`;
+}
 function openUser(id, note) {
   const u = lastUsers.find(x => x.id === id); if (!u) return;
   $('#udBody').innerHTML = `<h3>${esc(u.name || u.email)}</h3><p class="dsc">${esc(u.email)}</p>
-  <dl class="kv"><dt>Role</dt><dd>${u.role === 'admin' ? 'Admin' : 'User'}</dd><dt>Status</dt><dd>${u.status === 'active' ? 'Active' : 'Disabled'}</dd><dt>Joined</dt><dd>${esc(dt(u.created_at))}</dd><dt>Last active</dt><dd>${esc(ago(u.last_seen || u.last_login))}</dd><dt>Accepted terms</dt><dd>${esc(dt(u.consent_at))}</dd><dt>Resumes saved</dt><dd>${u.resumes}</dd><dt>AI calls</dt><dd>${u.aiToday} today · ${u.ai30} in 30 days · ${compact(u.tokens30)} tokens</dd></dl>
+  <dl class="kv"><dt>Role</dt><dd>${u.role === 'admin' ? 'Admin' : 'User'}</dd><dt>Status</dt><dd>${u.status === 'active' ? 'Active' : 'Disabled'}</dd><dt>Joined</dt><dd>${esc(dt(u.created_at))}</dd><dt>Last active</dt><dd>${esc(ago(u.last_seen || u.last_login))}</dd><dt>Accepted terms</dt><dd>${esc(dt(u.consent_at))}</dd><dt>Resumes saved</dt><dd>${u.resumes}</dd><dt>AI calls</dt><dd>${u.aiToday} today · ${u.ai30} in 30 days · ${compact(u.tokens30)} tokens</dd>${subRow(u)}</dl>
   <div class="field"><label for="lim">Daily AI limit</label><input id="lim" type="number" min="0" max="100000" placeholder="Default (${window.defaultLimit})" value="${u.daily_limit == null ? '' : u.daily_limit}"><small>Leave blank to use the site default. Set 0 to block AI for this person.</small></div>
   <div class="actions"><button class="btn sm" id="saveLim">Save limit</button>
   <button class="btn ghost sm" id="tgStatus">${u.status === 'active' ? 'Disable account' : 'Enable account'}</button>
   <button class="btn ghost sm" id="tgRole">${u.role === 'admin' ? 'Remove admin' : 'Make admin'}</button></div>
+  <div class="hr"></div>
+  <h3 style="font-size:19px;margin:0 0 8px">Grant subscription</h3>
+  <p class="dsc">Use this after verifying a real payment yourself (UPI, bank transfer, etc.) — it never charges the user, it only records the access you're granting.</p>
+  <div class="grid">
+    <div class="field"><label for="subPlan">Plan</label><select id="subPlan"><option value="WEEKLY">Weekly — ₹349</option><option value="MONTHLY">Monthly — ₹549</option></select></div>
+    <div class="field"><label for="subStatus">Status</label><select id="subStatus"><option value="ACTIVE">Active</option><option value="EXPIRED">Expired</option></select></div>
+    <div class="field"><label for="subStart">Start date</label><input id="subStart" type="date" value="${toDateInput(Date.now())}"></div>
+    <div class="field"><label for="subEnd">End date</label><input id="subEnd" type="date" value="${toDateInput(Date.now() + 7 * 864e5)}"></div>
+  </div>
+  <div class="actions"><button class="btn sm" id="grantSub">Grant / update subscription</button>${u.subPlan && u.subStatus === 'ACTIVE' ? '<button class="btn ghost sm" id="revokeSub">Remove subscription</button>' : ''}</div>
   <div class="hr"></div>
   <div class="actions"><button class="btn ghost sm" id="rst">Reset password</button><button class="btn danger sm" id="del">Delete user and data</button></div>
   <div id="tempBox">${note || ''}</div>
@@ -231,6 +253,10 @@ function openUser(id, note) {
   $('#saveLim').onclick = () => act(() => api('PATCH', '/api/admin/users/' + id, { daily_limit: $('#lim').value === '' ? null : $('#lim').value }), 'Limit saved');
   $('#tgStatus').onclick = () => act(() => api('PATCH', '/api/admin/users/' + id, { status: u.status === 'active' ? 'disabled' : 'active' }), u.status === 'active' ? 'Account disabled' : 'Account enabled');
   $('#tgRole').onclick = () => act(() => api('PATCH', '/api/admin/users/' + id, { role: u.role === 'admin' ? 'user' : 'admin' }), 'Role updated');
+  $('#grantSub').onclick = () => act(() => api('POST', '/api/admin/users/' + id + '/subscription', {
+    plan: $('#subPlan').value, status: $('#subStatus').value, start_date: $('#subStart').value, end_date: $('#subEnd').value, source: 'ADMIN'
+  }), 'Subscription saved');
+  if ($('#revokeSub')) $('#revokeSub').onclick = () => act(() => api('POST', '/api/admin/users/' + id + '/subscription', { plan: 'NONE' }), 'Subscription removed');
   $('#rst').onclick = async () => { try { const r = await api('POST', '/api/admin/users/' + id + '/reset-password'); $('#tempBox').innerHTML = `<div class="temp">Temporary password (shown once):<br><code>${esc(r.temporaryPassword)}</code><br><small>Send it to the user privately. They must set a new password at their next sign-in, and they were signed out everywhere.</small></div>`; } catch (e) { toast(e.message); } };
   let armed = false; $('#del').onclick = async () => { if (!armed) { armed = true; $('#del').textContent = 'Click again to delete forever'; setTimeout(() => { armed = false; if ($('#del')) $('#del').textContent = 'Delete user and data'; }, 4000); return; } try { await api('DELETE', '/api/admin/users/' + id); d.close(); toast('User deleted'); loadUsers(); } catch (e) { toast(e.message); } };
 }
