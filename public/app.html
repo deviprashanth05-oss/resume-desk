@@ -344,6 +344,15 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 .up-plan ul li::before{content:"\2713 ";color:var(--ok);font-weight:700}
 .up-plan button{width:100%;justify-content:center}
 @media (max-width:540px){.up-grid{grid-template-columns:1fr}}
+#upiDlg{width:min(440px,94vw);text-align:center}
+#upiDlg h3{font-size:21px;margin-bottom:2px}
+.upi-amt{font:400 30px/1.1 var(--serif);margin:2px 0 14px}
+.upi-qr{width:200px;height:200px;border-radius:14px;border:1px solid var(--line);margin:0 auto 14px;display:block;object-fit:contain;background:#fff}
+.upi-id{display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--panel2);font-size:13px;margin:0 auto 16px;max-width:fit-content;flex-wrap:wrap}
+.upi-id code{font-size:12.5px;word-break:break-all}
+.upi-steps{text-align:left;margin:0 0 16px;padding-left:20px;font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+.upi-contacts{display:flex;gap:8px;margin-bottom:6px}
+.upi-contacts a{flex:1;justify-content:center;text-decoration:none}
 .locked-ov{position:relative}
 .locked-ov .lk-body{filter:blur(2.5px);opacity:.55;pointer-events:none;user-select:none}
 .locked-ov .lk-teaser{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:16px;background:color-mix(in srgb,var(--panel2) 55%,transparent)}
@@ -529,8 +538,28 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
   <h3 id="upTitle">Unlock Unlimited Resume AI</h3>
   <p class="dsc" id="upSub">Your Free Trial is complete. Continue editing your resume with unlimited AI chat.</p>
   <div class="up-grid" id="upGrid"></div>
-  <p class="dsc" style="margin-top:4px;font-size:12px" id="upNote">Payments are not connected yet — choosing a plan here won't charge you.</p>
+  <p class="dsc" style="margin-top:4px;font-size:12px" id="upNote">Choose a plan to pay by UPI. Access is activated by hand after we see your payment.</p>
   <div class="row"><button type="button" class="btn ghost" id="upCancel">Maybe later</button></div>
+</dialog>
+
+<dialog id="upiDlg">
+  <h3 id="upiTitle">Pay via UPI</h3>
+  <p class="dsc" id="upiSub">Scan the QR code or pay to the UPI ID below with any UPI app.</p>
+  <div class="upi-amt" id="upiAmt">₹0</div>
+  <a class="btn" id="upiPayBtn" href="#" style="display:flex;justify-content:center;width:100%;margin-bottom:14px">Pay now with UPI app</a>
+  <p class="dsc" style="margin:-8px 0 12px;font-size:12px">On a phone, this opens Google Pay/PhonePe/Paytm directly. On a computer, scan the QR code below instead.</p>
+  <img class="upi-qr" id="upiQr" src="/assets/upi-qr.png" alt="UPI QR code — scan to pay">
+  <div class="upi-id"><code id="upiIdTxt">deviprashanth512005@okhdfcbank</code><button type="button" class="btn ghost sm" id="upiCopy">Copy</button></div>
+  <ol class="upi-steps">
+    <li>Pay the amount above using Google Pay, PhonePe, Paytm or any UPI app.</li>
+    <li>Take a screenshot of the successful payment.</li>
+    <li>Send the screenshot with your account email (<b id="upiEmailRef"></b>) on WhatsApp or email below — we'll activate your plan, usually within a few hours.</li>
+  </ol>
+  <div class="upi-contacts">
+    <a class="btn" id="upiWa" target="_blank" rel="noopener">WhatsApp 88382 05668</a>
+    <a class="btn ghost" id="upiMail">Email us</a>
+  </div>
+  <div class="row"><button type="button" class="btn ghost" id="upiBack">Back</button><button type="button" class="btn ghost" id="upiClose">Close</button></div>
 </dialog>
 
 <dialog id="histDlg">
@@ -1911,13 +1940,33 @@ async function openUpgradeModal(reason) {
     ? "You've used all of your AI credits for this plan. Upgrade or renew to keep editing and analyzing your resume."
     : "You've used both of your free AI credits. Upgrade ITC Resume to continue improving your resume.";
   if (!st.plans) await loadPlans();
-  $('#upGrid').innerHTML = (st.plans || [
+  st.planList = st.plans || [
     { plan: 'WEEKLY', label: 'Weekly', price: 349, currency: '₹', credits: 30, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Job Description matching', 'Resume version history'] },
     { plan: 'MONTHLY', label: 'Monthly', price: 649, currency: '₹', credits: 70, recommended: true, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Job Description matching', 'Resume version history'] }
-  ]).map(planCardHtml).join('');
+  ];
+  $('#upGrid').innerHTML = st.planList.map(planCardHtml).join('');
   const d = $('#upgradeDlg'); if (d.showModal) d.showModal(); else d.setAttribute('open', '');
 }
 function closeUpgradeModal() { const d = $('#upgradeDlg'); if (d.close) d.close(); else d.removeAttribute('open'); }
+const UPI_ID = 'deviprashanth512005@okhdfcbank';
+const UPI_PAYEE_NAME = 'Prashanth';
+function openUpiModal(planCode) {
+  const p = (st.planList || []).find(x => x.plan === planCode) || { label: planCode, price: '', currency: '₹', credits: '' };
+  $('#upiTitle').textContent = 'Pay via UPI — ' + p.label + ' plan';
+  $('#upiSub').textContent = (p.credits ? ('Covers ' + p.credits + ' AI credits. ') : '') + 'Scan the QR code or pay to the UPI ID below with any UPI app.';
+  $('#upiAmt').textContent = p.currency + p.price;
+  const amt = Number(p.price) || 0;
+  const tn = ('ITC Resume ' + p.label + ' plan').slice(0, 50);
+  $('#upiPayBtn').href = 'upi://pay?pa=' + encodeURIComponent(UPI_ID) + '&pn=' + encodeURIComponent(UPI_PAYEE_NAME) + '&am=' + encodeURIComponent(amt.toFixed(2)) + '&cu=INR&tn=' + encodeURIComponent(tn);
+  const email = (st.user && st.user.email) || '';
+  $('#upiEmailRef').textContent = email || 'the email you signed up with';
+  const note = 'Resume AI payment — ' + p.label + ' plan, ' + p.currency + p.price + (email ? ', account: ' + email : '');
+  $('#upiWa').href = 'https://wa.me/918838205668?text=' + encodeURIComponent(note + '. I have paid via UPI, screenshot attached.');
+  $('#upiMail').href = 'mailto:intellify25@gmail.com?subject=' + encodeURIComponent('UPI payment — ' + p.label + ' plan') + '&body=' + encodeURIComponent(note + '\n\n(Attach your payment screenshot before sending)');
+  const upg = $('#upgradeDlg'); if (upg.close) upg.close(); else upg.removeAttribute('open');
+  const d = $('#upiDlg'); if (d.showModal) d.showModal(); else d.setAttribute('open', '');
+}
+function closeUpiModal() { const d = $('#upiDlg'); if (d.close) d.close(); else d.removeAttribute('open'); }
 function askForm(o) {
   return new Promise(res => {
     const d = $('#dlg'); $('#dlgTitle').textContent = o.title; $('#dlgDesc').textContent = o.desc || '';
@@ -2625,10 +2674,15 @@ function wire() {
   $('#jdUnlockBtn').addEventListener('click', () => openUpgradeModal('locked'));
   const atsUnlockBtn = $('#atsUnlockBtn'); if (atsUnlockBtn) atsUnlockBtn.addEventListener('click', () => openUpgradeModal(st.billing && st.billing.isPaid ? 'credits' : 'trial'));
   $('#upCancel').addEventListener('click', closeUpgradeModal);
-  $('#upGrid').addEventListener('click', async e => {
+  $('#upGrid').addEventListener('click', e => {
     const b = e.target.closest('button[data-plan]'); if (!b) return;
-    try { await api('POST', '/api/billing/checkout', { plan: b.dataset.plan }); }
-    catch (err) { $('#upNote').textContent = (err && err.message) || 'Online payment is not connected yet.'; }
+    openUpiModal(b.dataset.plan);
+  });
+  $('#upiBack').addEventListener('click', () => { closeUpiModal(); const u = $('#upgradeDlg'); if (u.showModal) u.showModal(); else u.setAttribute('open', ''); });
+  $('#upiClose').addEventListener('click', closeUpiModal);
+  $('#upiCopy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(UPI_ID); } catch (e) { /* clipboard unavailable; ID is still visible to copy by hand */ }
+    const c = $('#upiCopy'); c.textContent = 'Copied'; setTimeout(() => { c.textContent = 'Copy'; }, 1500);
   });
   $('#historyBtn').addEventListener('click', openHistory);
   $('#histClose').addEventListener('click', () => { const d = $('#histDlg'); if (d.close) d.close(); else d.removeAttribute('open'); });
