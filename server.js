@@ -277,6 +277,19 @@ app.put('/api/resumes/:id', A.requireAuth, ah(async (req, res) => {
 app.delete('/api/resumes/:id', A.requireAuth, ah(async (req, res) => { await db.run('DELETE FROM resumes WHERE id=? AND user_id=?', [req.params.id, req.user.id]); res.json({ ok: true }); }));
 
 app.use('/api/admin', require('./lib/admin'));
+
+// TEMPORARY, one-time use: promotes the signed-in account to admin, guarded by a
+// secret only you know (set as ADMIN_PROMOTE_SECRET in Vercel). Remove this route
+// and the env var once you've used it — it's not meant to stay in the app. Must be
+// registered BEFORE the catch-all '/api' 404 handler below, or it never gets reached.
+app.get('/api/admin-bootstrap/promote', ah(async (req, res) => {
+  if (!process.env.ADMIN_PROMOTE_SECRET || req.query.secret !== process.env.ADMIN_PROMOTE_SECRET) return res.status(403).json({ error: 'Invalid or missing secret.' });
+  if (!req.user) return res.status(401).json({ error: 'You must be signed in to the account you want to promote first.' });
+  await db.run("UPDATE users SET role='admin' WHERE id=?", [req.user.id]);
+  await db.audit(req.user, 'admin.selfpromote.temp', req.user.email);
+  res.json({ ok: true, email: req.user.email, message: 'Your account is now an admin. Remove ADMIN_PROMOTE_SECRET and this route now.' });
+}));
+
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 
 /* ---------- pages ---------- */
@@ -285,17 +298,6 @@ const send = (res, name) => { res.setHeader('Content-Type', 'text/html; charset=
 app.get('/', (req, res) => req.user ? send(res, 'app.html') : send(res, 'landing.html'));
 app.get('/login', (req, res) => req.user ? res.redirect('/') : send(res, 'login.html'));
 app.get('/admin', (req, res) => (req.user && req.user.role === 'admin') ? send(res, 'admin.html') : res.redirect(req.user ? '/' : '/login'));
-
-// TEMPORARY, one-time use: promotes the signed-in account to admin, guarded by a
-// secret only you know (set as ADMIN_PROMOTE_SECRET in Vercel). Remove this route
-// and the env var once you've used it — it's not meant to stay in the app.
-app.get('/api/admin-bootstrap/promote', ah(async (req, res) => {
-  if (!process.env.ADMIN_PROMOTE_SECRET || req.query.secret !== process.env.ADMIN_PROMOTE_SECRET) return res.status(403).json({ error: 'Invalid or missing secret.' });
-  if (!req.user) return res.status(401).json({ error: 'You must be signed in to the account you want to promote first.' });
-  await db.run("UPDATE users SET role='admin' WHERE id=?", [req.user.id]);
-  await db.audit(req.user, 'admin.selfpromote.temp', req.user.email);
-  res.json({ ok: true, email: req.user.email, message: 'Your account is now an admin. Remove ADMIN_PROMOTE_SECRET and this route now.' });
-}));
 app.get('/privacy', (req, res) => send(res, 'privacy.html'));
 app.get('/terms', (req, res) => send(res, 'terms.html'));
 // Single explicit static file (no directory listing / traversal surface) — the UPI
