@@ -15,6 +15,7 @@
   "dependencies": {
     "express": "^4.21.0",
     "mysql2": "^3.24.4",
-    "nodemailer": "^10.0.16"
+    "nodemailer": "^10.0.16",
+    "razorpay": "^2.9.8"
   }
 }

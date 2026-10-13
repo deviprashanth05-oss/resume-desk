@@ -3,6 +3,8 @@ const db = require('./lib/db');
 const A = require('./lib/auth');
 const ai = require('./lib/ai');
 const billing = require('./lib/billing');
+const razorpay = require('./lib/razorpay');
+const mailer = require('./lib/mailer');
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const APP_NAME = process.env.APP_NAME || 'ITC Resume';
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || '';
@@ -16,7 +18,10 @@ app.set('trust proxy', process.env.TRUST_PROXY || 'loopback, linklocal, uniquelo
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('X-Frame-Options', 'DENY'); res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; worker-src blob: https://cdnjs.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+  // script/connect/frame-src additions below are the minimum Razorpay's Standard
+  // Checkout needs: it loads its own script, opens its payment UI in an iframe, and
+  // calls its own API directly from the browser (never through our server).
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://checkout.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.razorpay.com; connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://lumberjack-cx.razorpay.com; frame-src https://api.razorpay.com https://checkout.razorpay.com; worker-src blob: https://cdnjs.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
   if (req.secure) res.setHeader('Strict-Transport-Security', 'max-age=15552000');
   next();
 });
@@ -81,18 +86,62 @@ app.get('/api/me', A.requireAuth, ah(async (req, res) => res.json({
   announcement: (await db.getSettings()).announcement, tz: db.TZ
 })));
 
-/* ---------- billing: Free Trial (2 credits, once) + paid credit-pool subscriptions; Razorpay is a future step ---------- */
+/* ---------- billing: Free Trial (2 credits, once) + paid credit-pool subscriptions ---------- */
 app.get('/api/billing/status', A.requireAuth, ah(async (req, res) => res.json(
   req.user.role === 'admin' ? ADMIN_BILLING : await billing.getBillingStatus(req.user.id)
 )));
 app.get('/api/billing/plans', A.requireAuth, ah(async (req, res) => res.json({ plans: [billing.PLANS.WEEKLY, billing.PLANS.MONTHLY] })));
-// Real payments (Razorpay) are Step 3 and are not implemented yet. This endpoint
-// exists so the upgrade modal has somewhere honest to send the click to, instead of
-// faking success. It must never create a subscription row itself.
-app.post('/api/billing/checkout', A.requireAuth, ah(async (req, res) => res.status(501).json({
-  code: 'not_implemented',
-  error: 'Online payment is not connected yet. ' + (SUPPORT_EMAIL ? 'Contact ' + SUPPORT_EMAIL + ' to upgrade for now.' : 'Please check back soon.')
-})));
+// Razorpay Standard Checkout, step 1: create an order server-side. Amount is always
+// computed from billing.PLANS here, never trusted from the client, so a tampered
+// request can't buy a plan for less. Returns the public key_id (safe to expose —
+// it identifies the merchant, it isn't a secret) so the frontend can open the modal.
+app.post('/api/billing/razorpay/order', A.requireAuth, ah(async (req, res) => {
+  const plan = billing.PLANS[(req.body || {}).plan];
+  if (!plan) return res.status(400).json({ error: 'Plan must be WEEKLY or MONTHLY.' });
+  const rp = razorpay.getClient();
+  if (!rp) return res.status(500).json({ error: 'Online payment is not set up on the server yet.' });
+  const amountPaise = Math.round(plan.price * 100);
+  if (amountPaise < 100) return res.status(400).json({ error: 'Amount too small.' });
+  let order;
+  try {
+    order = await rp.orders.create({
+      amount: amountPaise, currency: 'INR',
+      receipt: 'u' + req.user.id + '-' + plan.plan + '-' + Date.now(),
+      notes: { user_id: String(req.user.id), plan: plan.plan }
+    });
+  } catch (e) {
+    console.error('[razorpay] order creation failed:', e && e.message, e && e.error);
+    return res.status(502).json({ error: 'Could not start the payment. Please try again.' });
+  }
+  res.json({ order_id: order.id, amount: order.amount, currency: order.currency, key_id: razorpay.KEY_ID, plan: plan.plan });
+}));
+// Razorpay Standard Checkout, step 2: verify the payment signature the checkout
+// modal handed back, then grant the subscription immediately — this is what makes
+// crediting automatic instead of the manual "admin checks a WhatsApp screenshot"
+// flow. A signature that doesn't match is never trusted, full stop: no subscription
+// row is written and no credits are granted. The admin-panel manual-grant path
+// (lib/admin.js) is untouched and still works as a fallback / for UPI screenshots.
+app.post('/api/billing/razorpay/verify', A.requireAuth, ah(async (req, res) => {
+  const b = req.body || {};
+  const plan = billing.PLANS[b.plan];
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = b;
+  if (!plan || !razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    return res.status(400).json({ error: 'Missing payment details.' });
+  }
+  if (!razorpay.verifySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
+    return res.status(400).json({ error: 'Payment could not be verified. If money was deducted, contact support — it was not lost.' });
+  }
+  const now = Date.now(), start = now, end = now + plan.days * 864e5;
+  await db.run("UPDATE subscriptions SET status='CANCELLED' WHERE user_id=? AND status='ACTIVE'", [req.user.id]);
+  await db.run('INSERT INTO subscriptions(user_id,plan,status,start_date,end_date,subscription_id,subscription_source,credits_allocated,credits_used,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
+    [req.user.id, plan.plan, 'ACTIVE', start, end, razorpay_payment_id, 'RAZORPAY', plan.credits, 0, now]);
+  await db.audit(req.user, 'subscription.razorpay', req.user.email, plan.plan + ' via Razorpay payment ' + razorpay_payment_id);
+  const emailResult = await mailer.sendInvoiceEmail({
+    to: req.user.email, name: req.user.name, plan: plan.plan, label: plan.label, price: plan.price,
+    currency: plan.currency, credits: plan.credits, startDate: start, endDate: end
+  });
+  res.json({ ok: true, plan: plan.plan, credits_allocated: plan.credits, end_date: end, email_sent: emailResult.sent });
+}));
 // The Job Match score itself is computed entirely client-side (deterministic JS,
 // never an AI call, see public/app.html's ats-engine) so there is no scoring API to
 // gate. This is the actual server-side gate for that feature (section 6: "if a Free
@@ -191,8 +240,10 @@ app.get('/admin', (req, res) => (req.user && req.user.role === 'admin') ? send(r
 app.get('/privacy', (req, res) => send(res, 'privacy.html'));
 app.get('/terms', (req, res) => send(res, 'terms.html'));
 // Single explicit static file (no directory listing / traversal surface) — the UPI
-// QR code shown in the upgrade flow's "Pay via UPI" screen.
-app.get('/assets/upi-qr.png', (req, res) => { res.setHeader('Cache-Control', 'public, max-age=86400'); res.sendFile(path.join(PUB, 'assets', 'upi-qr.png')); });
+// QR code shown in the upgrade flow's "Pay via UPI" screen. Lives directly in public/
+// (not a public/assets subfolder) so it can be uploaded via GitHub's web uploader
+// alongside the other public/ files without needing a nested-folder upload.
+app.get('/upi-qr.png', (req, res) => { res.setHeader('Cache-Control', 'public, max-age=86400'); res.sendFile(path.join(PUB, 'upi-qr.png')); });
 app.use((req, res) => res.status(404).type('text').send('Not found'));
 app.use((err, req, res, next) => { console.error(err); if (res.headersSent) return res.end(); res.status(err.status || 500).json({ code: 'upstream_error', error: err.type === 'entity.too.large' ? 'Too large' : 'Server error' }); });
 
