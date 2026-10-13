@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Admin · {{APP_NAME}}</title>
 <meta name="robots" content="noindex,nofollow">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='2' width='24' height='28' rx='4' fill='%230F1B33'/%3E%3Crect x='9' y='9' width='14' height='4' rx='2' fill='%23FFE066'/%3E%3C/svg%3E">
+<link rel="icon" href="/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
@@ -125,7 +125,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 <body>
 <div class="app">
   <aside class="side">
-    <a class="logo" href="/admin"><svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect x="4" y="2" width="24" height="28" rx="4" fill="currentColor"/><rect x="9" y="9" width="14" height="4" rx="2" fill="#FFE066"/><rect x="9" y="16" width="14" height="2.5" rx="1.2" fill="#fff" opacity=".75"/><rect x="9" y="21" width="9" height="2.5" rx="1.2" fill="#fff" opacity=".75"/></svg><span>{{APP_NAME}}</span></a>
+    <a class="logo" href="/admin"><img src="/logo.png" width="28" height="28" alt="" style="object-fit:contain"><span>{{APP_NAME}}</span></a>
     <div class="tag">Admin dashboard</div>
     <nav class="nav" id="nav">
       <button data-p="overview" aria-current="page">Overview</button>
@@ -241,7 +241,7 @@ function openUser(id, note) {
   <h3 style="font-size:19px;margin:0 0 8px">Grant subscription</h3>
   <p class="dsc">Use this after verifying a real payment yourself (UPI, bank transfer, etc.) — it never charges the user, it only records the access you're granting.</p>
   <div class="grid">
-    <div class="field"><label for="subPlan">Plan</label><select id="subPlan"><option value="WEEKLY">Weekly — ₹349 (30 credits)</option><option value="MONTHLY">Monthly — ₹649 (70 credits)</option></select></div>
+    <div class="field"><label for="subPlan">Plan</label><select id="subPlan"><option value="WEEKLY">Weekly — ₹349 (15 credits)</option><option value="MONTHLY">Monthly — ₹649 (30 credits)</option></select></div>
     <div class="field"><label for="subStatus">Status</label><select id="subStatus"><option value="ACTIVE">Active</option><option value="EXPIRED">Expired</option></select></div>
     <div class="field"><label for="subStart">Start date</label><input id="subStart" type="date" value="${toDateInput(Date.now())}"></div>
     <div class="field"><label for="subEnd">End date</label><input id="subEnd" type="date" value="${toDateInput(Date.now() + 7 * 864e5)}"></div>
@@ -254,7 +254,7 @@ function openUser(id, note) {
   <div id="tempBox">${note || ''}</div>
   <div class="actions" style="margin-top:14px;justify-content:flex-end"><button class="btn ghost sm" id="closeU">Close</button></div>`;
   const d = $('#ud'); if (!d.open) d.showModal();
-  const act = async (fn, msg) => { try { await fn(); toast(msg); await loadUsers(); const nu = lastUsers.find(x => x.id === id); if (nu) openUser(id); else d.close(); } catch (e) { toast(e.message); } };
+  const act = async (fn, msg) => { try { const r = await fn(); toast(typeof msg === 'function' ? msg(r) : msg); await loadUsers(); const nu = lastUsers.find(x => x.id === id); if (nu) openUser(id); else d.close(); } catch (e) { toast(e.message); } };
   $('#closeU').onclick = () => d.close();
   $('#saveLim').onclick = () => act(() => api('PATCH', '/api/admin/users/' + id, { daily_limit: $('#lim').value === '' ? null : $('#lim').value }), 'Limit saved');
   $('#tgStatus').onclick = () => act(() => api('PATCH', '/api/admin/users/' + id, { status: u.status === 'active' ? 'disabled' : 'active' }), u.status === 'active' ? 'Account disabled' : 'Account enabled');
@@ -263,7 +263,7 @@ function openUser(id, note) {
     plan: $('#subPlan').value, status: $('#subStatus').value, start_date: $('#subStart').value, end_date: $('#subEnd').value, source: 'ADMIN',
     credits_allocated: $('#subCreditsAllocated').value === '' ? undefined : $('#subCreditsAllocated').value,
     credits_used: $('#subCreditsUsed').value === '' ? undefined : $('#subCreditsUsed').value
-  }), 'Subscription saved');
+  }), r => 'Subscription saved' + (r && r.status === 'ACTIVE' ? (r.email_sent ? ' — receipt emailed to user' : ' — receipt NOT sent (' + (r.email_reason === 'smtp_not_configured' ? 'email not set up on server' : r.email_reason || 'unknown error') + ')') : ''));
   if ($('#revokeSub')) $('#revokeSub').onclick = () => act(() => api('POST', '/api/admin/users/' + id + '/subscription', { plan: 'NONE' }), 'Subscription removed');
   $('#rst').onclick = async () => { try { const r = await api('POST', '/api/admin/users/' + id + '/reset-password'); $('#tempBox').innerHTML = `<div class="temp">Temporary password (shown once):<br><code>${esc(r.temporaryPassword)}</code><br><small>Send it to the user privately. They must set a new password at their next sign-in, and they were signed out everywhere.</small></div>`; } catch (e) { toast(e.message); } };
   let armed = false; $('#del').onclick = async () => { if (!armed) { armed = true; $('#del').textContent = 'Click again to delete forever'; setTimeout(() => { armed = false; if ($('#del')) $('#del').textContent = 'Delete user and data'; }, 4000); return; } try { await api('DELETE', '/api/admin/users/' + id); d.close(); toast('User deleted'); loadUsers(); } catch (e) { toast(e.message); } };
