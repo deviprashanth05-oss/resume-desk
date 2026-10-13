@@ -171,6 +171,14 @@ app.post('/api/billing/razorpay/verify', A.requireAuth, ah(async (req, res) => {
   if (!razorpay.verifySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
     return res.status(400).json({ error: 'Payment could not be verified. If money was deducted, contact support — it was not lost.' });
   }
+  // Idempotency guard: if this exact payment was already verified and credited
+  // (a retried request, a double-fired handler, the user re-submitting), return
+  // the existing result instead of inserting a second subscription row and
+  // crediting the account twice for one payment.
+  const already = await db.get('SELECT * FROM subscriptions WHERE subscription_id=? AND subscription_source=?', [razorpay_payment_id, 'RAZORPAY']);
+  if (already) {
+    return res.json({ ok: true, plan: already.plan, credits_allocated: already.credits_allocated, end_date: already.end_date, email_sent: false, already_processed: true });
+  }
   const now = Date.now(), start = now, end = now + plan.days * 864e5;
   await db.run("UPDATE subscriptions SET status='CANCELLED' WHERE user_id=? AND status='ACTIVE'", [req.user.id]);
   await db.run('INSERT INTO subscriptions(user_id,plan,status,start_date,end_date,subscription_id,subscription_source,credits_allocated,credits_used,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
@@ -231,7 +239,7 @@ app.post('/api/resumes', A.requireAuth, ah(async (req, res) => {
   // all — this blocks the "delete it and start a new free trial" loophole outright,
   // independent of how many resumes they currently have.
   if (!bs.unlimited && !bs.isPaid && bs.creditsRemaining <= 0) {
-    return res.status(403).json({ code: 'FREE_TRIAL_EXHAUSTED', error: 'Your 2 free AI credits have been used. Upgrade to continue creating and editing resumes.' });
+    return res.status(403).json({ code: 'FREE_TRIAL_EXHAUSTED', error: 'Your 3 free AI credits have been used. Upgrade to continue creating and editing resumes.' });
   }
   const max = bs.unlimited || bs.isPaid ? (parseInt((await db.getSettings()).max_resumes, 10) || 15) : 1;
   const count = (await db.get('SELECT COUNT(*) c FROM resumes WHERE user_id=?', [req.user.id])).c;
