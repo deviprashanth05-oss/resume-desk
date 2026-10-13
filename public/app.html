@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <style>
 :root{
   --bg:#E8ECF3; --panel:#F7F9FC; --panel2:#FFFFFF; --ink:#0F1B33; --muted:#586580; --line:#D3DAE6;
@@ -538,7 +539,8 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
   <h3 id="upTitle">Unlock Unlimited Resume AI</h3>
   <p class="dsc" id="upSub">Your Free Trial is complete. Continue editing your resume with unlimited AI chat.</p>
   <div class="up-grid" id="upGrid"></div>
-  <p class="dsc" style="margin-top:4px;font-size:12px" id="upNote">Choose a plan to pay by UPI. Access is activated by hand after we see your payment.</p>
+  <p class="dsc" style="margin-top:4px;font-size:12px" id="upNote">Choose a plan — pay by card, netbanking or UPI and your plan activates instantly.</p>
+  <p class="dsc" style="margin-top:2px;font-size:12px"><a href="javascript:void(0)" id="upManualLink">Prefer to pay manually via UPI instead?</a></p>
   <div class="row"><button type="button" class="btn ghost" id="upCancel">Maybe later</button></div>
 </dialog>
 
@@ -548,7 +550,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
   <div class="upi-amt" id="upiAmt">₹0</div>
   <a class="btn" id="upiPayBtn" href="#" style="display:flex;justify-content:center;width:100%;margin-bottom:14px">Pay now with UPI app</a>
   <p class="dsc" style="margin:-8px 0 12px;font-size:12px">On a phone, this opens Google Pay/PhonePe/Paytm directly. On a computer, scan the QR code below instead.</p>
-  <img class="upi-qr" id="upiQr" src="/assets/upi-qr.png" alt="UPI QR code — scan to pay">
+  <img class="upi-qr" id="upiQr" src="/upi-qr.png" alt="UPI QR code — scan to pay">
   <div class="upi-id"><code id="upiIdTxt">deviprashanth512005@okhdfcbank</code><button type="button" class="btn ghost sm" id="upiCopy">Copy</button></div>
   <ol class="upi-steps">
     <li>Pay the amount above using Google Pay, PhonePe, Paytm or any UPI app.</li>
@@ -1967,6 +1969,41 @@ function openUpiModal(planCode) {
   const d = $('#upiDlg'); if (d.showModal) d.showModal(); else d.setAttribute('open', '');
 }
 function closeUpiModal() { const d = $('#upiDlg'); if (d.close) d.close(); else d.removeAttribute('open'); }
+// Automatic checkout: pay through Razorpay's own modal (cards, netbanking, and UPI —
+// including scan-to-pay — all live inside it), then verify server-side and the
+// subscription activates immediately, no admin step. The manual QR screen
+// (openUpiModal, above) stays as a fallback for when this can't be used.
+async function startRazorpayCheckout(planCode) {
+  const p = (st.planList || []).find(x => x.plan === planCode);
+  const btn = document.querySelector('#upGrid button[data-plan="' + planCode + '"]');
+  if (typeof Razorpay === 'undefined') { toast('Online payment could not load (check your connection), or use "Pay manually via UPI" below.'); return; }
+  const origText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Starting payment…'; }
+  let order;
+  try { order = await api('POST', '/api/billing/razorpay/order', { plan: planCode }); }
+  catch (e) { toast((e && e.message) || 'Could not start payment.'); if (btn) { btn.disabled = false; btn.textContent = origText; } return; }
+  if (btn) { btn.disabled = false; btn.textContent = origText; }
+  const rzp = new Razorpay({
+    key: order.key_id, amount: order.amount, currency: order.currency, order_id: order.order_id,
+    name: document.title, description: (p ? p.label : planCode) + ' plan',
+    prefill: { email: (st.user && st.user.email) || '', name: (st.user && st.user.name) || '' },
+    theme: { color: '#0F1B33' },
+    handler: async function (resp) {
+      try {
+        const r = await api('POST', '/api/billing/razorpay/verify', {
+          plan: planCode, razorpay_order_id: resp.razorpay_order_id,
+          razorpay_payment_id: resp.razorpay_payment_id, razorpay_signature: resp.razorpay_signature
+        });
+        closeUpgradeModal();
+        toast('Payment received — your ' + (p ? p.label : '') + ' plan is active!' + (r.email_sent ? ' A receipt was emailed to you.' : ''));
+        try { const me = await api('GET', '/api/me'); st.billing = me.billing; renderBilling(); applyLockState(); } catch (e) {}
+      } catch (e) { toast((e && e.message) || 'Payment succeeded but activation failed — contact support with your payment ID.'); }
+    },
+    modal: { ondismiss: function () { toast('Payment cancelled.'); } }
+  });
+  rzp.on('payment.failed', function (resp) { toast('Payment failed: ' + ((resp && resp.error && resp.error.description) || 'please try again.')); });
+  rzp.open();
+}
 function askForm(o) {
   return new Promise(res => {
     const d = $('#dlg'); $('#dlgTitle').textContent = o.title; $('#dlgDesc').textContent = o.desc || '';
@@ -2676,7 +2713,12 @@ function wire() {
   $('#upCancel').addEventListener('click', closeUpgradeModal);
   $('#upGrid').addEventListener('click', e => {
     const b = e.target.closest('button[data-plan]'); if (!b) return;
-    openUpiModal(b.dataset.plan);
+    st.lastPlanClicked = b.dataset.plan;
+    startRazorpayCheckout(b.dataset.plan);
+  });
+  $('#upManualLink').addEventListener('click', () => {
+    const plan = st.lastPlanClicked || (st.planList && st.planList[0] && st.planList[0].plan);
+    if (plan) openUpiModal(plan);
   });
   $('#upiBack').addEventListener('click', () => { closeUpiModal(); const u = $('#upgradeDlg'); if (u.showModal) u.showModal(); else u.setAttribute('open', ''); });
   $('#upiClose').addEventListener('click', closeUpiModal);
