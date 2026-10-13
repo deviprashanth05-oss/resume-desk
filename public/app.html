@@ -396,7 +396,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
     </div>
     <span class="top-sp"></span>
     <span class="pill" id="saveState" aria-live="polite"></span>
-    <span class="pill" id="quota" title="Free Trial status">…</span>
+    <button class="pill" id="quota" type="button" title="View your plan and AI credits">…</button>
     <div class="acct">
       <button class="avatar" id="acctBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Account">?</button>
       <div class="menu acctmenu" id="acctMenu" role="menu" hidden>
@@ -1942,14 +1942,23 @@ function planCardHtml(p) {
     <ul>${p.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
     <button class="btn${p.recommended ? '' : ' ghost'}" type="button" data-plan="${esc(p.plan)}">Choose ${esc(p.label)}</button></div>`;
 }
+function currentPlanSummary() {
+  const b = st.billing; if (!b) return 'See your plans and AI credits below.';
+  if (b.unlimited) return "You're on an admin account with unlimited AI credits.";
+  const planName = b.isPaid ? (b.plan === 'WEEKLY' ? 'Weekly' : 'Monthly') : 'Free Trial';
+  const credits = b.creditsRemaining != null ? b.creditsRemaining : 0;
+  return `Current plan: ${planName} — ${credits} AI credit${credits === 1 ? '' : 's'} remaining. Pick a plan below to upgrade or renew anytime.`;
+}
 async function openUpgradeModal(reason) {
   st.lastUpgradeReason = reason;
-  $('#upTitle').textContent = reason === 'locked' ? 'Unlock This Feature' : (reason === 'credits' ? "You've used all your AI credits" : 'Your Free Trial Is Over');
+  $('#upTitle').textContent = reason === 'locked' ? 'Unlock This Feature' : reason === 'credits' ? "You've used all your AI credits" : reason === 'view' ? 'Your Plan' : 'Your Free Trial Is Over';
   $('#upSub').textContent = reason === 'locked'
     ? 'That feature is part of a paid ITC Resume plan. Upgrade to unlock Job Description matching and more AI credits.'
     : reason === 'credits'
     ? "You've used all of your AI credits for this plan. Upgrade or renew to keep editing and analyzing your resume."
-    : "You've used both of your free AI credits. Upgrade ITC Resume to continue improving your resume.";
+    : reason === 'view'
+    ? currentPlanSummary()
+    : "You've used all of your free AI credits. Upgrade ITC Resume to continue improving your resume.";
   if (!st.plans) await loadPlans();
   st.planList = st.plans || [
     { plan: 'WEEKLY', label: 'Weekly', price: 349, currency: '₹', credits: 15, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Job Description matching', 'Resume version history'] },
@@ -2709,6 +2718,7 @@ function wire() {
   $('#rsBtn').addEventListener('click', e => { e.stopPropagation(); toggleMenu('#rsMenu', '#rsBtn'); });
   $('#rsMenu').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; closeMenus(); if (b.dataset.id) { if (b.dataset.id !== st.rid) openResume(b.dataset.id).catch(() => toast('Could not open that resume.')); } else if (b.dataset.a) resumeAction(b.dataset.a); });
   $('#acctBtn').addEventListener('click', e => { e.stopPropagation(); toggleMenu('#acctMenu', '#acctBtn'); });
+  $('#quota').addEventListener('click', () => { if (!st.billing || !st.billing.unlimited) openUpgradeModal('view'); });
   $('#acctMenu').addEventListener('click', e => { const b = e.target.closest('button[data-a]'); if (b) { closeMenus(); acctAction(b.dataset.a); } });
   document.addEventListener('click', e => { if (!e.target.closest('.dl,.rs,.acct')) closeMenus(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenus(); });
