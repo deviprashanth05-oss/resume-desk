@@ -5,6 +5,7 @@ const ai = require('./lib/ai');
 const billing = require('./lib/billing');
 const razorpay = require('./lib/razorpay');
 const mailer = require('./lib/mailer');
+const googleAuth = require('./lib/google-auth');
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const APP_NAME = process.env.APP_NAME || 'ITC Resume';
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || '';
@@ -76,6 +77,45 @@ app.post('/api/auth/login', ah(async (req, res) => {
   res.json({ ok: true, must_change: !!u.must_change });
 }));
 app.post('/api/auth/logout', ah(async (req, res) => { await A.destroySession(req, res); res.json({ ok: true }); }));
+
+// ---------- Sign in with Google ----------
+// Plain top-level redirects (browser -> Google -> back to us), not fetch calls from
+// the page, so this needs no CSP changes. `state` is a random value we stash in a
+// short-lived cookie and check on the way back, so a forged callback can't log
+// someone into an account they didn't choose (CSRF on the OAuth flow).
+const GSTATE_COOKIE = 'rd_gstate';
+app.get('/api/auth/google', ah(async (req, res) => {
+  if (!googleAuth.isConfigured()) return res.redirect('/login?err=google_not_configured');
+  const state = googleAuth.randomState();
+  res.append('Set-Cookie', GSTATE_COOKIE + '=' + state + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=600' + (req.secure ? '; Secure' : ''));
+  res.redirect(googleAuth.authUrl(req, state));
+}));
+app.get('/api/auth/google/callback', ah(async (req, res) => {
+  res.append('Set-Cookie', GSTATE_COOKIE + '=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0' + (req.secure ? '; Secure' : ''));
+  const cookies = {}; String(req.headers.cookie || '').split(';').forEach(p => { const i = p.indexOf('='); if (i > 0) cookies[p.slice(0, i).trim()] = p.slice(i + 1).trim(); });
+  if (req.query.error) return res.redirect('/login?err=google_denied');
+  if (!req.query.state || req.query.state !== cookies[GSTATE_COOKIE]) return res.redirect('/login?err=google_denied');
+  if (!req.query.code) return res.redirect('/login?err=google_denied');
+  let info;
+  try { info = await googleAuth.exchangeCode(req, req.query.code); } catch (e) { return res.redirect('/login?err=google_failed'); }
+  if (!info.emailVerified) return res.redirect('/login?err=google_unverified_email');
+  const now = Date.now();
+  let u = await db.get('SELECT * FROM users WHERE email=?', [info.email]);
+  if (!u) {
+    if ((await db.getSettings()).signups_open !== '1') return res.redirect('/login?err=closed');
+    // No password was ever set for a Google-created account, so we store an
+    // unguessable random hash as a placeholder — it can never be typed in, which
+    // is exactly right: this account only ever signs in via Google.
+    const unusablePass = await A.hashPassword(crypto.randomBytes(32).toString('hex'));
+    const ins = await db.run('INSERT INTO users(email,name,pass_hash,created_at,last_login,last_seen,consent_at) VALUES(?,?,?,?,?,?,?)',
+      [info.email, clean(info.name).slice(0, 80), unusablePass, now, now, now, now]);
+    u = { id: ins.insertId, status: 'active' };
+  }
+  if (u.status !== 'active') return res.redirect('/login?err=account_disabled');
+  await db.run('UPDATE users SET last_login=?, last_seen=? WHERE id=?', [now, now, u.id]);
+  await A.createSession(req, res, u.id);
+  res.redirect('/');
+}));
 
 const ADMIN_BILLING = { plan: 'ADMIN', status: 'ACTIVE', unlimited: true, isPaid: true, creditsAllocated: null, creditsUsed: 0, creditsRemaining: null, trialComplete: false, maxResumes: null, endDate: null };
 
