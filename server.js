@@ -126,18 +126,18 @@ app.get('/api/me', A.requireAuth, ah(async (req, res) => res.json({
   announcement: (await db.getSettings()).announcement, tz: db.TZ
 })));
 
-/* ---------- billing: Free Trial (2 credits, once) + paid credit-pool subscriptions ---------- */
+/* ---------- billing: Free Trial (3 credits, once) + paid credit-pack subscriptions ---------- */
 app.get('/api/billing/status', A.requireAuth, ah(async (req, res) => res.json(
   req.user.role === 'admin' ? ADMIN_BILLING : await billing.getBillingStatus(req.user.id)
 )));
-app.get('/api/billing/plans', A.requireAuth, ah(async (req, res) => res.json({ plans: [billing.PLANS.WEEKLY, billing.PLANS.MONTHLY] })));
+app.get('/api/billing/plans', A.requireAuth, ah(async (req, res) => res.json({ plans: [billing.PLANS.STARTER, billing.PLANS.PRO, billing.PLANS.POWER] })));
 // Razorpay Standard Checkout, step 1: create an order server-side. Amount is always
 // computed from billing.PLANS here, never trusted from the client, so a tampered
 // request can't buy a plan for less. Returns the public key_id (safe to expose —
 // it identifies the merchant, it isn't a secret) so the frontend can open the modal.
 app.post('/api/billing/razorpay/order', A.requireAuth, ah(async (req, res) => {
   const plan = billing.PLANS[(req.body || {}).plan];
-  if (!plan) return res.status(400).json({ error: 'Plan must be WEEKLY or MONTHLY.' });
+  if (!plan) return res.status(400).json({ error: 'Plan must be STARTER, PRO, or POWER.' });
   const rp = razorpay.getClient();
   if (!rp) return res.status(500).json({ error: 'Online payment is not set up on the server yet.' });
   const amountPaise = Math.round(plan.price * 100);
@@ -297,20 +297,30 @@ app.use((err, req, res, next) => { console.error(err); if (res.headersSent) retu
 
 /* ---------- startup: create tables, then create the first admin if needed ---------- */
 async function boot() {
-  await db.ready();
-  const email = A.normEmail(process.env.ADMIN_EMAIL), pw = process.env.ADMIN_PASSWORD;
-  const hasAdmin = await db.get("SELECT 1 x FROM users WHERE role='admin'");
-  if (email && pw && !hasAdmin) {
-    if (!A.validEmail(email) || pw.length < 8) { console.error('ADMIN_EMAIL / ADMIN_PASSWORD invalid (password needs 8+ characters). No admin created.'); }
-    else {
-      const now = Date.now();
-      try {
-        await db.run("INSERT INTO users(email,name,pass_hash,role,created_at,consent_at) VALUES(?,?,?, 'admin', ?, ?)", [email, 'Admin', await A.hashPassword(pw), now, now]);
-        await db.audit(null, 'admin.bootstrap', email); console.log('Created first admin: ' + email + ' (remove ADMIN_PASSWORD from your .env now)');
-      } catch (e) { if (e.code !== 'ER_DUP_ENTRY') throw e; }
-    }
-  } else if (!hasAdmin) console.log('No admin yet. Set ADMIN_EMAIL and ADMIN_PASSWORD, or run: npm run create-admin -- you@example.com "password"');
+  // Everything DB-related is wrapped in its own try/catch: a transient database
+  // problem at startup (e.g. a free-tier DB waking from sleep) must never take down
+  // the whole process here. This app runs as one Vercel serverless function, so
+  // crashing boot() used to fail EVERY route — including routes that don't touch the
+  // database — until a fresh cold start happened. Now we just log it; db.ready()
+  // retries on its own, and the next request tries again automatically.
+  try {
+    await db.ready();
+    const email = A.normEmail(process.env.ADMIN_EMAIL), pw = process.env.ADMIN_PASSWORD;
+    const hasAdmin = await db.get("SELECT 1 x FROM users WHERE role='admin'");
+    if (email && pw && !hasAdmin) {
+      if (!A.validEmail(email) || pw.length < 8) { console.error('ADMIN_EMAIL / ADMIN_PASSWORD invalid (password needs 8+ characters). No admin created.'); }
+      else {
+        const now = Date.now();
+        try {
+          await db.run("INSERT INTO users(email,name,pass_hash,role,created_at,consent_at) VALUES(?,?,?, 'admin', ?, ?)", [email, 'Admin', await A.hashPassword(pw), now, now]);
+          await db.audit(null, 'admin.bootstrap', email); console.log('Created first admin: ' + email + ' (remove ADMIN_PASSWORD from your .env now)');
+        } catch (e) { if (e.code !== 'ER_DUP_ENTRY') throw e; }
+      }
+    } else if (!hasAdmin) console.log('No admin yet. Set ADMIN_EMAIL and ADMIN_PASSWORD, or run: npm run create-admin -- you@example.com "password"');
+  } catch (e) {
+    console.error('Startup DB check failed (will retry automatically on the next request):', e.message);
+  }
   if (require.main === module) app.listen(PORT, () => console.log(APP_NAME + ' running on http://localhost:' + PORT + ' (day resets in ' + db.TZ + ')'));
 }
-boot().catch(e => { console.error('Startup failed:', e.message); process.exit(1); });
+boot();
 module.exports = app;
