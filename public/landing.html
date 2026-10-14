@@ -7,64 +7,134 @@
 <meta name="theme-color" content="#0F1B33">
 <link rel="icon" href="/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&family=Poppins:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#E8ECF3; --panel:#F7F9FC; --panel2:#FFFFFF; --ink:#0F1B33; --muted:#586580; --line:#D3DAE6;
-  --accent:#2848D9; --accent-ink:#FFFFFF; --tint:#E8EDFC; --hl:#FFE066;
+  --accent:#2848D9; --accent2:#7B5CFF; --accent-ink:#FFFFFF; --tint:#E8EDFC; --hl:#FFE066;
   --ok:#157347; --warn:#985000; --bad:#B3261E;
-  --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Tamil","Noto Sans Devanagari","Noto Sans",Arial,sans-serif;
-  --serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --grad:linear-gradient(135deg,var(--accent),var(--accent2));
+  --sans:"Poppins",system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Tamil","Noto Sans Devanagari","Noto Sans",Arial,sans-serif;
+  --serif:"Playfair Display",Georgia,"Times New Roman",serif;
+  --wordmark:"Space Grotesk",var(--sans);
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){--bg:#0C1220;--panel:#131A2A;--panel2:#1A2336;--ink:#E8EDF7;--muted:#9AA7BF;--line:#28334A;--accent:#8EA5FF;--accent-ink:#0C1220;--tint:#1E2947;--ok:#5FD39A;--warn:#F0B35A;--bad:#FF8A80}
+  :root:not([data-theme="light"]){--bg:#0C1220;--panel:#131A2A;--panel2:#1A2336;--ink:#E8EDF7;--muted:#9AA7BF;--line:#28334A;--accent:#8EA5FF;--accent2:#B79CFF;--accent-ink:#0C1220;--tint:#1E2947;--ok:#5FD39A;--warn:#F0B35A;--bad:#FF8A80}
 }
-:root[data-theme="dark"]{--bg:#0C1220;--panel:#131A2A;--panel2:#1A2336;--ink:#E8EDF7;--muted:#9AA7BF;--line:#28334A;--accent:#8EA5FF;--accent-ink:#0C1220;--tint:#1E2947;--ok:#5FD39A;--warn:#F0B35A;--bad:#FF8A80}
+:root[data-theme="dark"]{--bg:#0C1220;--panel:#131A2A;--panel2:#1A2336;--ink:#E8EDF7;--muted:#9AA7BF;--line:#28334A;--accent:#8EA5FF;--accent2:#B79CFF;--accent-ink:#0C1220;--tint:#1E2947;--ok:#5FD39A;--warn:#F0B35A;--bad:#FF8A80}
 *,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
 html,body{height:100%;margin:0}
-body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 a{color:inherit}
-.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
-header.top{display:flex;align-items:center;gap:14px;height:64px;border-bottom:1px solid var(--line)}
+.wrap{max-width:1100px;margin:0 auto;padding:0 20px;position:relative}
+header.top{display:flex;align-items:center;gap:14px;height:68px;border-bottom:1px solid var(--line);position:sticky;top:0;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(10px);z-index:40}
 .logo{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
-.logo span{font:400 23px/1 var(--serif)}
+.logo img{filter:drop-shadow(0 2px 6px rgba(40,72,217,.25));transition:transform .4s cubic-bezier(.2,.9,.3,1.3)}
+.logo:hover img{transform:rotate(-6deg) scale(1.08)}
+.logo .lname{font:700 23px/1 var(--wordmark);letter-spacing:-.01em}
+.logo .lname .wm-accent{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .navr{margin-left:auto;display:flex;gap:10px;align-items:center}
-.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:10px 18px;font-weight:600;font-size:14.5px;display:inline-flex;align-items:center;gap:8px;text-decoration:none;cursor:pointer}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:10px 18px;font-weight:600;font-size:14.5px;display:inline-flex;align-items:center;gap:8px;text-decoration:none;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease;position:relative}
+.btn:not(.ghost){background:var(--grad);box-shadow:0 10px 24px -10px color-mix(in srgb,var(--accent) 60%,transparent)}
+.btn:not(.ghost):hover{transform:translateY(-2px);box-shadow:0 16px 30px -10px color-mix(in srgb,var(--accent) 65%,transparent)}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.ghost:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}
 .btn.lg{padding:13px 24px;font-size:15.5px;border-radius:12px}
-.hero{padding:72px 0 56px;display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center}
+
+/* ---------- reveal-on-scroll ---------- */
+.reveal{opacity:0;transform:translateY(32px);transition:opacity .8s cubic-bezier(.16,.84,.44,1),transform .8s cubic-bezier(.16,.84,.44,1)}
+.reveal.in{opacity:1;transform:none}
+.reveal.d1.in{transition-delay:.08s}.reveal.d2.in{transition-delay:.16s}.reveal.d3.in{transition-delay:.24s}.reveal.d4.in{transition-delay:.32s}
+
+/* ---------- hero + floating 3D orbs ---------- */
+.hero-stage{position:relative}
+.orb{position:absolute;border-radius:50%;filter:blur(50px);opacity:.55;pointer-events:none;z-index:0}
+.orb.o1{width:280px;height:280px;background:var(--accent);top:-60px;right:120px;animation:float1 9s ease-in-out infinite}
+.orb.o2{width:200px;height:200px;background:var(--accent2);top:220px;right:-40px;animation:float2 11s ease-in-out infinite}
+.orb.o3{width:160px;height:160px;background:var(--hl);opacity:.3;top:60px;left:-30px;animation:float1 13s ease-in-out infinite reverse}
+@keyframes float1{0%,100%{transform:translate(0,0)}50%{transform:translate(18px,-26px)}}
+@keyframes float2{0%,100%{transform:translate(0,0)}50%{transform:translate(-22px,20px)}}
+
+.hero{padding:76px 0 58px;display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center;position:relative;z-index:1}
 .kicker{display:inline-block;background:var(--tint);color:var(--accent);border-radius:999px;padding:5px 13px;font-size:12.5px;font-weight:600;letter-spacing:.02em}
-h1{font:400 50px/1.08 var(--serif);margin:18px 0 14px}
-h1 em{font-style:italic;color:var(--accent)}
+h1{font:600 50px/1.1 var(--sans);margin:18px 0 14px;letter-spacing:-.015em}
+h1 em{font:italic 700 1em/1.1 var(--serif);font-style:italic;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .lead{color:var(--muted);font-size:16.5px;max-width:48ch;margin:0 0 26px}
 .cta-row{display:flex;gap:12px;flex-wrap:wrap}
 .trust{margin-top:18px;color:var(--muted);font-size:13px}
-.mock{background:var(--panel2);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 20px 60px -24px rgba(15,27,51,.35)}
+.trustbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+.trustbar span{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:12.5px;color:var(--muted)}
+.trustbar span b{color:var(--ok);font-size:14px;line-height:0}
+
+.mock-stage{perspective:1400px}
+.mock{background:var(--panel2);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 30px 70px -28px rgba(15,27,51,.45);transform:rotateY(-9deg) rotateX(5deg) rotateZ(-.5deg);transform-style:preserve-3d;animation:driftTilt 7s ease-in-out infinite;transition:transform .35s ease,box-shadow .35s ease}
+.mock-stage:hover .mock{transform:rotateY(-3deg) rotateX(2deg) scale(1.015);box-shadow:0 36px 80px -26px rgba(15,27,51,.5)}
+@keyframes driftTilt{0%,100%{transform:rotateY(-9deg) rotateX(5deg) rotateZ(-.5deg) translateY(0)}50%{transform:rotateY(-6deg) rotateX(3deg) rotateZ(0deg) translateY(-8px)}}
 .mock .bar{display:flex;gap:6px;margin-bottom:14px}
 .mock .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
 .mock .bubble{background:var(--tint);border-left:3px solid var(--accent);border-radius:4px 14px 14px 14px;padding:10px 13px;font-size:13.5px;margin-bottom:10px;max-width:90%}
 .mock .bubble.me{margin-left:auto;background:var(--panel);border:1px solid var(--line);border-left:1px solid var(--line);border-radius:14px 14px 4px 14px}
 .mock .score{display:flex;justify-content:space-between;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:6px}
-.mock .score b{font:600 26px/1 var(--sans);color:var(--ok)}
+.mock .score b{font:700 26px/1 var(--wordmark);color:var(--ok)}
 
-section.feat{padding:50px 0}
-.feat h2{font:400 34px/1.15 var(--serif);text-align:center;margin:0 0 8px}
-.feat .sub{text-align:center;color:var(--muted);max-width:52ch;margin:0 auto 36px}
-.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-.card{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:22px}
-.card .ic{width:38px;height:38px;border-radius:10px;background:var(--tint);color:var(--accent);display:grid;place-items:center;margin-bottom:12px}
-.card h3{margin:0 0 6px;font-size:16.5px}
+section.feat{padding:60px 0}
+.feat h2,.ba h2,.how h2,.plans h2{font:600 34px/1.15 var(--serif);text-align:center;margin:0 0 8px}
+.feat .sub,.ba .sub,.how .sub,.plans .sub{text-align:center;color:var(--muted);max-width:52ch;margin:0 auto 36px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;perspective:1200px}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:22px;transition:transform .35s ease,box-shadow .35s ease,border-color .35s ease}
+@media (hover:hover){.card:hover{transform:translateY(-6px) rotateX(3deg) rotateY(-2deg);box-shadow:0 22px 40px -22px rgba(15,27,51,.3);border-color:var(--accent)}}
+.card .ic{width:38px;height:38px;border-radius:10px;background:var(--grad);color:#fff;display:grid;place-items:center;margin-bottom:12px}
+.card h3{margin:0 0 6px;font-size:16.5px;font-weight:600}
 .card p{margin:0;color:var(--muted);font-size:14px}
 
-section.plans{padding:50px 0 72px}
-.plans-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:34px}
-.plan{background:var(--panel2);border:1px solid var(--line);border-radius:18px;padding:26px}
+/* ---------- before / after showcase ---------- */
+section.ba{padding:60px 0}
+.ba-wrap{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:center}
+.ba-card{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:18px;transition:transform .4s ease,box-shadow .4s ease}
+@media (hover:hover){.ba-card:hover{transform:translateY(-4px) rotateX(2deg)}}
+.ba-card .tagline{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.ba-card .tagline b{font-size:12.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.ba-card .score-pill{font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 10px}
+.ba-card.before{opacity:.9}
+.ba-card.before .score-pill{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.ba-card.after .score-pill{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.ba-card.after{border-color:var(--accent);box-shadow:0 20px 50px -26px color-mix(in srgb,var(--accent) 40%,transparent)}
+.resume-mini{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--panel)}
+.resume-mini .rname{font-weight:700;font-size:14.5px;margin-bottom:2px}
+.resume-mini .rrole{color:var(--muted);font-size:12px;margin-bottom:10px}
+.resume-mini .rline{height:8px;border-radius:4px;background:var(--line);margin-bottom:7px}
+.resume-mini.messy .rline{width:100%}
+.resume-mini.messy .rline:nth-child(odd){width:92%}
+.resume-mini.clean .rtag{display:inline-block;font-size:10.5px;background:var(--tint);color:var(--accent);border-radius:6px;padding:2px 7px;margin:0 5px 6px 0}
+.resume-mini.clean .rbul{display:flex;gap:6px;font-size:11.5px;color:var(--ink);margin-bottom:6px;line-height:1.4}
+.resume-mini.clean .rbul::before{content:"\2713";color:var(--ok);font-weight:700}
+.resume-mini.clean .rbul mark{background:var(--hl);color:#3a2e00;border-radius:3px;padding:0 3px}
+.ba-arrow{display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--accent)}
+.ba-arrow span{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;text-align:center}
+.ba-arrow svg{animation:nudge 1.6s ease-in-out infinite}
+@keyframes nudge{0%,100%{transform:translateX(0)}50%{transform:translateX(6px)}}
+@media (max-width:760px){.ba-wrap{grid-template-columns:1fr}.ba-arrow svg{transform:rotate(90deg)}}
+
+/* ---------- how it works ---------- */
+section.how{padding:60px 0}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;counter-reset:step}
+.step{position:relative;padding:26px 20px 20px;background:var(--panel2);border:1px solid var(--line);border-radius:16px;text-align:center}
+.step .num{width:36px;height:36px;border-radius:50%;background:var(--grad);color:#fff;font:700 15px/36px var(--wordmark);margin:0 auto 12px}
+.step h4{margin:0 0 6px;font-size:15.5px}
+.step p{margin:0;color:var(--muted);font-size:13.5px}
+
+section.plans{padding:56px 0 76px}
+.plans-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:34px;perspective:1200px}
+.plan{background:var(--panel2);border:1px solid var(--line);border-radius:18px;padding:24px 22px;transition:transform .35s ease,box-shadow .35s ease}
+@media (hover:hover){.plan:hover{transform:translateY(-6px)}}
 .plan.rec{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent);position:relative}
-.plan .tag{position:absolute;top:-12px;left:20px;background:var(--accent);color:var(--accent-ink);font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px}
+.plan .tag{position:absolute;top:-12px;left:20px;background:var(--grad);color:#fff;font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px}
 .plan h4{margin:0 0 2px;font-size:14.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
-.plan .price{font:400 40px/1.1 var(--serif);margin:6px 0 14px}
-.plan .price small{font:500 14px var(--sans);color:var(--muted)}
-.plan ul{list-style:none;margin:0 0 18px;padding:0;display:flex;flex-direction:column;gap:7px;font-size:13.5px;color:var(--muted)}
+.plan .price{font:700 36px/1.1 var(--wordmark);margin:6px 0 4px}
+.plan .price small{font:500 13px var(--sans);color:var(--muted)}
+.plan .credits-note{font-size:12px;color:var(--muted);margin:0 0 14px}
+.plan ul{list-style:none;margin:0 0 18px;padding:0;display:flex;flex-direction:column;gap:7px;font-size:13px;color:var(--muted)}
 .plan ul li::before{content:"\2713 ";color:var(--ok);font-weight:700}
 
 footer{border-top:1px solid var(--line);padding:26px 0;color:var(--muted);font-size:13px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
@@ -73,9 +143,15 @@ footer a:hover{color:var(--ink)}
 
 @media (max-width:860px){
   .hero{grid-template-columns:1fr;padding-top:40px}
-  h1{font-size:38px}
-  .grid3,.plans-grid{grid-template-columns:1fr}
+  h1{font-size:36px}
+  .grid3,.steps{grid-template-columns:1fr}
+  .plans-grid{grid-template-columns:1fr 1fr}
   .logo .lname{font-size:20px}
+  .orb{display:none}
+}
+@media (max-width:520px){.plans-grid{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto !important}
 }
 </style>
 </head>
@@ -83,7 +159,7 @@ footer a:hover{color:var(--ink)}
 <header class="top"><div class="wrap" style="display:flex;align-items:center;width:100%">
   <a class="logo" href="/">
     <img src="/logo.png" width="28" height="28" alt="" style="object-fit:contain">
-    <span class="lname">{{APP_NAME}}</span>
+    <span class="lname"><span class="wm-accent">ITC</span> Resume</span>
   </a>
   <nav class="navr">
     <a class="btn ghost" href="/login">Sign in</a>
@@ -91,7 +167,8 @@ footer a:hover{color:var(--ink)}
   </nav>
 </div></header>
 
-<div class="wrap">
+<div class="wrap hero-stage">
+  <div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
   <section class="hero">
     <div>
       <span class="kicker">Free to start · No card required</span>
@@ -102,31 +179,40 @@ footer a:hover{color:var(--ink)}
         <a class="btn ghost lg" href="/login">I already have an account</a>
       </div>
       <p class="trust">Start with 1 free resume and 3 free AI credits — no payment needed to try it.</p>
+      <div class="trustbar">
+        <span><b>✓</b> Tanglish &amp; English chat</span>
+        <span><b>✓</b> Rule-based ATS scoring</span>
+        <span><b>✓</b> PDF &amp; Word export</span>
+      </div>
     </div>
-    <div class="mock" aria-hidden="true">
-      <div class="bar"><i></i><i></i><i></i></div>
-      <div class="bubble">Upload your resume or tell me what you'd like to improve. I'll optimize it for ATS and highlight every change.</div>
-      <div class="bubble me">Rewrite my summary and change the color to navy</div>
-      <div class="bubble">Done — I tightened your summary and switched the accent to navy.</div>
-      <div class="score"><span>ATS Compatibility</span><b>88<small style="font-size:13px"> / 100</small></b></div>
+    <div class="mock-stage">
+      <div class="mock" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i></div>
+        <div class="bubble">Upload your resume or tell me what you'd like to improve. I'll optimize it for ATS and highlight every change.</div>
+        <div class="bubble me">Rewrite my summary and change the color to navy</div>
+        <div class="bubble">Done — I tightened your summary and switched the accent to navy.</div>
+        <div class="score"><span>ATS Compatibility</span><b>88<small style="font-size:13px"> / 100</small></b></div>
+      </div>
     </div>
   </section>
+</div>
 
+<div class="wrap">
   <section class="feat">
-    <h2>Everything you need to land the interview</h2>
-    <p class="sub">A chat-based editor, a real ATS checker, and exports that work — in one place.</p>
+    <h2 class="reveal">Everything you need to land the interview</h2>
+    <p class="sub reveal">A chat-based editor, a real ATS checker, and exports that work — in one place.</p>
     <div class="grid3">
-      <div class="card">
+      <div class="card reveal d1">
         <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
         <h3>Edit by chatting</h3>
-        <p>Ask in plain language — "make this ATS-friendly", "change the template" — and watch your resume update live, in any language you speak.</p>
+        <p>Ask in plain language — "make this ATS-friendly", "change the template" — and watch your resume update live, in Tanglish or English.</p>
       </div>
-      <div class="card">
+      <div class="card reveal d2">
         <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg></div>
         <h3>Real ATS scoring</h3>
         <p>A transparent, rule-based compatibility score — never a black-box AI guess — plus a job-match analysis against any job description.</p>
       </div>
-      <div class="card">
+      <div class="card reveal d3">
         <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3M8 7l4-4 4 4M5 21h14"/></svg></div>
         <h3>Export anywhere</h3>
         <p>Download a polished PDF or an editable Word file whenever you're ready — formatted and ready to send.</p>
@@ -134,43 +220,94 @@ footer a:hover{color:var(--ink)}
     </div>
   </section>
 
+  <section class="ba">
+    <h2 class="reveal">See the difference in seconds</h2>
+    <p class="sub reveal">A real before/after — same experience, rewritten and scored by {{APP_NAME}}.</p>
+    <div class="ba-wrap">
+      <div class="ba-card before reveal d1">
+        <div class="tagline"><b>Before</b><span class="score-pill">ATS 41/100</span></div>
+        <div class="resume-mini messy">
+          <div class="rname">priya sharma</div>
+          <div class="rrole">worked as analyst</div>
+          <div class="rline"></div><div class="rline"></div><div class="rline"></div>
+          <div class="rline" style="width:70%"></div>
+        </div>
+      </div>
+      <div class="ba-arrow reveal d2">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        <span>ITC Resume AI</span>
+      </div>
+      <div class="ba-card after reveal d3">
+        <div class="tagline"><b>After</b><span class="score-pill">ATS 92/100</span></div>
+        <div class="resume-mini clean">
+          <div class="rname">Priya Sharma</div>
+          <div class="rrole">Data Analyst · Chennai, India</div>
+          <div style="margin:4px 0 8px"><span class="rtag">SQL</span><span class="rtag">Power BI</span><span class="rtag">Python</span></div>
+          <div class="rbul">Built <mark>10 dashboards</mark> used by 35 store managers</div>
+          <div class="rbul">Cut reporting time by <mark>30%</mark> with automation</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="how">
+    <h2 class="reveal">Three steps, start to export</h2>
+    <p class="sub reveal">No templates to wrestle with — just tell it what you need.</p>
+    <div class="steps">
+      <div class="step reveal d1"><div class="num">1</div><h4>Tell it about yourself</h4><p>Paste your old resume or just describe your experience in your own words.</p></div>
+      <div class="step reveal d2"><div class="num">2</div><h4>AI rewrites &amp; scores it</h4><p>Every change is highlighted, with a transparent ATS compatibility score.</p></div>
+      <div class="step reveal d3"><div class="num">3</div><h4>Export &amp; apply</h4><p>Download a polished PDF or Word file, ready to send to recruiters.</p></div>
+    </div>
+  </section>
+
   <section class="plans">
-    <h2 style="font:400 34px/1.15 var(--serif);text-align:center;margin:0 0 8px">Simple pricing</h2>
-    <p class="sub" style="text-align:center;color:var(--muted);max-width:52ch;margin:0 auto">Start free. Upgrade for more AI credits when you need them.</p>
+    <h2 class="reveal">Simple, credit-based pricing</h2>
+    <p class="sub reveal">Start free. Top up with a credit pack whenever you need more — credits never expire.</p>
     <div class="plans-grid">
-      <div class="plan">
+      <div class="plan reveal d1">
         <h4>Free Trial</h4>
         <div class="price">₹0</div>
+        <p class="credits-note">1 resume</p>
         <ul>
-          <li>1 resume</li>
           <li>3 free AI credits</li>
           <li>Color &amp; template changes</li>
           <li>ATS Compatibility Score</li>
         </ul>
         <a class="btn ghost" style="width:100%;justify-content:center" href="/login?mode=signup">Start free</a>
       </div>
-      <div class="plan">
-        <h4>Weekly</h4>
-        <div class="price">₹349<small> / week</small></div>
+      <div class="plan reveal d2">
+        <h4>Starter</h4>
+        <div class="price">₹149<small> one-time</small></div>
+        <p class="credits-note">10 AI credits · never expires</p>
         <ul>
-          <li>15 AI credits</li>
           <li>AI resume editing &amp; rewriting</li>
           <li>Job Description matching</li>
           <li>Resume version history</li>
         </ul>
         <a class="btn ghost" style="width:100%;justify-content:center" href="/login?mode=signup">Get started</a>
       </div>
-      <div class="plan rec">
-        <span class="tag">Recommended</span>
-        <h4>Monthly</h4>
-        <div class="price">₹649<small> / month</small></div>
+      <div class="plan rec reveal d3">
+        <span class="tag">Best Value</span>
+        <h4>Pro</h4>
+        <div class="price">₹299<small> one-time</small></div>
+        <p class="credits-note">25 AI credits · never expires</p>
         <ul>
-          <li>30 AI credits</li>
           <li>AI resume editing &amp; rewriting</li>
           <li>Job Description matching</li>
           <li>Resume version history</li>
         </ul>
         <a class="btn" style="width:100%;justify-content:center" href="/login?mode=signup">Get started</a>
+      </div>
+      <div class="plan reveal d4">
+        <h4>Power</h4>
+        <div class="price">₹499<small> one-time</small></div>
+        <p class="credits-note">50 AI credits · never expires</p>
+        <ul>
+          <li>AI resume editing &amp; rewriting</li>
+          <li>Job Description matching</li>
+          <li>Resume version history</li>
+        </ul>
+        <a class="btn ghost" style="width:100%;justify-content:center" href="/login?mode=signup">Get started</a>
       </div>
     </div>
   </section>
@@ -180,6 +317,16 @@ footer a:hover{color:var(--ink)}
   <span>© <span id="yr"></span> {{APP_NAME}}</span>
   <span><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></span>
 </div></footer>
-<script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+<script>
+document.getElementById('yr').textContent = new Date().getFullYear();
+(function(){
+  var els = document.querySelectorAll('.reveal');
+  if (!('IntersectionObserver' in window)) { els.forEach(function(el){ el.classList.add('in'); }); return; }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(en){ if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+  els.forEach(function(el){ io.observe(el); });
+})();
+</script>
 </body>
 </html>

@@ -8,20 +8,22 @@
 <link rel="icon" href="/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&family=Poppins:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <style>
 :root{
   --bg:#E8ECF3; --panel:#F7F9FC; --panel2:#FFFFFF; --ink:#0F1B33; --muted:#586580; --line:#D3DAE6;
-  --accent:#2848D9; --accent-ink:#FFFFFF; --tint:#E8EDFC; --hl:#FFE066;
+  --accent:#2848D9; --accent2:#7B5CFF; --accent-ink:#FFFFFF; --tint:#E8EDFC; --hl:#FFE066;
   --ok:#157347; --warn:#985000; --bad:#B3261E; --dots:#CDD5E3;
-  --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Tamil","Noto Sans Devanagari","Noto Sans",Arial,sans-serif;
-  --serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --grad:linear-gradient(135deg,var(--accent),var(--accent2));
+  --sans:"Poppins",system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Tamil","Noto Sans Devanagari","Noto Sans",Arial,sans-serif;
+  --serif:"Playfair Display",Georgia,"Times New Roman",serif;
+  --wordmark:"Space Grotesk",var(--sans);
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){--bg:#0C1220;--panel:#131A2A;--panel2:#1A2336;--ink:#E8EDF7;--muted:#9AA7BF;--line:#28334A;--accent:#8EA5FF;--accent-ink:#0C1220;--tint:#1E2947;--ok:#5FD39A;--warn:#F0B35A;--bad:#FF8A80;--dots:#1E283C}
+  :root:not([data-theme="light"]){--bg:#0C1220;--panel:#131A2A;--panel2:#1A2336;--ink:#E8EDF7;--muted:#9AA7BF;--line:#28334A;--accent:#8EA5FF;--accent2:#B79CFF;--accent-ink:#0C1220;--tint:#1E2947;--ok:#5FD39A;--warn:#F0B35A;--bad:#FF8A80;--dots:#1E283C}
 }
-:root[data-theme="dark"]{--bg:#0C1220;--panel:#131A2A;--panel2:#1A2336;--ink:#E8EDF7;--muted:#9AA7BF;--line:#28334A;--accent:#8EA5FF;--accent-ink:#0C1220;--tint:#1E2947;--ok:#5FD39A;--warn:#F0B35A;--bad:#FF8A80;--dots:#1E283C}
+:root[data-theme="dark"]{--bg:#0C1220;--panel:#131A2A;--panel2:#1A2336;--ink:#E8EDF7;--muted:#9AA7BF;--line:#28334A;--accent:#8EA5FF;--accent2:#B79CFF;--accent-ink:#0C1220;--tint:#1E2947;--ok:#5FD39A;--warn:#F0B35A;--bad:#FF8A80;--dots:#1E283C}
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *,*::before,*::after{box-sizing:inherit}
@@ -44,7 +46,10 @@ svg.ic{flex:none}
 .top{display:flex;align-items:center;gap:12px;height:54px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--line)}
 .logo{display:inline-flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none}
 .logo svg{color:var(--ink)}
-.logo span{font:400 25px/1 var(--serif);letter-spacing:.005em}
+.logo img{transition:transform .35s cubic-bezier(.2,.9,.3,1.3)}
+.logo:hover img{transform:rotate(-6deg) scale(1.08)}
+.logo span{font:700 25px/1 var(--wordmark);letter-spacing:-.01em}
+.logo span .wm-accent{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .top-sp{flex:1}
 .linkbtn{background:none;border:0;padding:6px 10px;color:var(--muted);font-size:13.5px;border-radius:8px}
 .linkbtn:hover{color:var(--ink);background:var(--tint)}
@@ -68,7 +73,7 @@ svg.ic{flex:none}
 @keyframes msgIn{from{opacity:0;transform:translateY(6px) scale(.985)}to{opacity:1;transform:none}}
 .msg .bubble{border-radius:16px;padding:11px 14px;transition:box-shadow .15s}
 .msg.ai{align-self:flex-start;max-width:90%;display:flex;gap:10px;align-items:flex-start}
-.msg.ai .ava{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,var(--accent),color-mix(in srgb,var(--accent) 60%,var(--hl) 40%));color:var(--accent-ink);margin-top:1px;box-shadow:0 1px 4px color-mix(in srgb,var(--accent) 45%,transparent)}
+.msg.ai .ava{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--grad);color:#fff;margin-top:1px;box-shadow:0 1px 4px color-mix(in srgb,var(--accent) 45%,transparent)}
 .msg.ai .bubble{background:var(--tint);border:1px solid color-mix(in srgb,var(--accent) 20%,var(--line));border-left:3px solid var(--accent);color:var(--ink);border-radius:4px 16px 16px 16px;box-shadow:0 1px 2px rgba(15,27,51,.05)}
 .msg.me{align-self:flex-end;max-width:82%}
 .msg.me .bubble{background:linear-gradient(165deg,var(--panel2),color-mix(in srgb,var(--panel2) 85%,var(--accent) 15%));color:var(--ink);border:1px solid var(--line);border-radius:16px 16px 4px 16px;box-shadow:0 1px 3px rgba(15,27,51,.08)}
@@ -99,11 +104,12 @@ svg.ic{flex:none}
 .iconbtn.mic.recording::after{content:"";position:absolute;inset:-4px;border-radius:12px;border:2px solid var(--bad);opacity:.5;animation:micpulse 1.4s ease-out infinite;pointer-events:none}
 @keyframes micpulse{0%{transform:scale(.85);opacity:.6}100%{transform:scale(1.25);opacity:0}}
 @media (prefers-reduced-motion: reduce){.iconbtn.mic.recording::after{animation:none;opacity:0}}
-.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:9px 16px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:9px 16px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:transform .15s ease,box-shadow .15s ease,filter .15s}
 .btn:hover:not(:disabled){filter:brightness(1.07)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .btn.sm{padding:6px 12px;font-size:13.5px;border-radius:9px}
-.btn.lg{padding:12px 20px;font-size:15.5px;border-radius:12px}
+.btn.lg{padding:12px 20px;font-size:15.5px;border-radius:12px;background:var(--grad);box-shadow:0 10px 24px -10px color-mix(in srgb,var(--accent) 55%,transparent)}
+.btn.lg:hover:not(:disabled){filter:none;transform:translateY(-2px);box-shadow:0 14px 28px -10px color-mix(in srgb,var(--accent) 60%,transparent)}
 .btn.ghost{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
 .btn.ghost:hover:not(:disabled){border-color:var(--accent);filter:none}
 .btn.send{padding:8px 14px;border-radius:11px;transition:transform .12s,filter .15s,box-shadow .15s}
@@ -145,15 +151,17 @@ button.pill:hover{border-color:var(--accent);color:var(--ink)}
 
 /* hero */
 .hero{position:relative;display:flex;flex-direction:column;align-items:flex-start;max-width:620px;margin:auto;isolation:isolate}
-.hero-glow{position:absolute;inset:-60px -20% -20% -20%;z-index:-1;background:radial-gradient(520px 320px at 20% 10%,color-mix(in srgb,var(--accent) 18%,transparent),transparent 70%),radial-gradient(420px 300px at 90% 90%,color-mix(in srgb,var(--hl) 26%,transparent),transparent 70%);filter:blur(6px);opacity:.8;pointer-events:none}
+.hero-glow{position:absolute;inset:-60px -20% -20% -20%;z-index:-1;background:radial-gradient(520px 320px at 20% 10%,color-mix(in srgb,var(--accent) 20%,transparent),transparent 70%),radial-gradient(420px 300px at 90% 90%,color-mix(in srgb,var(--accent2) 22%,transparent),transparent 70%);filter:blur(6px);opacity:.8;pointer-events:none;animation:glowDrift 10s ease-in-out infinite}
+@keyframes glowDrift{0%,100%{transform:translate(0,0)}50%{transform:translate(10px,-10px)}}
+@media (prefers-reduced-motion: reduce){.hero-glow{animation:none}}
 .kicker{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;letter-spacing:.02em;color:var(--accent);background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:5px 12px;margin-bottom:16px}
 .kicker::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent)}
-.hero h2{font:400 clamp(38px,4.4vw,54px)/1.1 var(--serif);margin:0 0 14px;letter-spacing:-.005em;max-width:13ch}
-.hero h2 em{font-style:italic;color:var(--accent)}
+.hero h2{font:600 clamp(38px,4.4vw,54px)/1.1 var(--sans);margin:0 0 14px;letter-spacing:-.015em;max-width:13ch}
+.hero h2 em{font:italic 700 1em/1.1 var(--serif);background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .lead{color:var(--muted);font-size:16.5px;margin:0 0 26px;max-width:44ch}
 .drop-zone{display:flex;align-items:center;gap:14px;background:var(--panel2);border:1.5px dashed var(--line);border-radius:16px;padding:16px 18px;transition:border-color .15s,background .15s;width:100%}
 .drop-zone.over{border-color:var(--accent);background:var(--tint)}
-.dz-ic{flex:none;width:44px;height:44px;border-radius:11px;background:var(--tint);color:var(--accent);display:grid;place-items:center}
+.dz-ic{flex:none;width:44px;height:44px;border-radius:11px;background:var(--grad);color:#fff;display:grid;place-items:center;box-shadow:0 6px 16px -6px color-mix(in srgb,var(--accent) 55%,transparent)}
 .dz-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .dz-txt b{font-size:14.5px}
 .dz-txt span{font-size:12.5px;color:var(--muted)}
@@ -303,7 +311,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
 }
 
 /* --- account, resume switcher, dialogs --- */
-.top .logo .lname{font:400 25px/1 var(--serif)}
+.top .logo .lname{font:700 25px/1 var(--wordmark)}
 #saveState:empty{display:none}
 .rs{position:relative;margin-left:8px}
 .rsbtn{display:inline-flex;align-items:center;gap:6px;max-width:min(320px,40vw);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-weight:500;font-size:14px}
@@ -342,17 +350,18 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 #quota.pro{color:var(--ok);border-color:var(--ok)}
 #upgradeDlg{width:min(680px,94vw)}
 #upgradeDlg h3{font-size:24px}
-.up-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0 6px}
-.up-plan{border:1px solid var(--line);border-radius:14px;padding:18px;background:var(--panel2);position:relative}
+.up-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0 6px}
+.up-plan{border:1px solid var(--line);border-radius:14px;padding:18px;background:var(--panel2);position:relative;transition:transform .25s ease,box-shadow .25s ease}
+@media (hover:hover){.up-plan:hover{transform:translateY(-4px);box-shadow:0 16px 30px -18px rgba(15,27,51,.3)}}
 .up-plan.rec{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
-.up-plan .tag{position:absolute;top:-11px;left:16px;background:var(--accent);color:var(--accent-ink);font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}
+.up-plan .tag{position:absolute;top:-11px;left:16px;background:var(--grad);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}
 .up-plan h4{margin:0 0 2px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
-.up-plan .price{font:400 32px/1.1 var(--serif);margin:4px 0 10px}
+.up-plan .price{font:700 30px/1.1 var(--wordmark);margin:4px 0 10px}
 .up-plan .price small{font:500 13px var(--sans);color:var(--muted)}
 .up-plan ul{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--muted)}
 .up-plan ul li::before{content:"\2713 ";color:var(--ok);font-weight:700}
 .up-plan button{width:100%;justify-content:center}
-@media (max-width:540px){.up-grid{grid-template-columns:1fr}}
+@media (max-width:620px){.up-grid{grid-template-columns:1fr}}
 #upiDlg{width:min(440px,94vw);text-align:center}
 #upiDlg h3{font-size:21px;margin-bottom:2px}
 .upi-amt{font:400 30px/1.1 var(--serif);margin:2px 0 14px}
@@ -381,7 +390,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
   <header class="top">
     <a class="logo" href="/" aria-label="{{APP_NAME}}" id="logo">
       <img src="/logo.png" width="30" height="30" alt="" style="object-fit:contain">
-      <span class="lname">{{APP_NAME}}</span>
+      <span class="lname"><span class="wm-accent">ITC</span> Resume</span>
     </a>
     <div class="rs">
       <button class="rsbtn" id="rsBtn" type="button" aria-haspopup="menu" aria-expanded="false"><span id="rsTitle">Loading…</span><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
@@ -1902,6 +1911,8 @@ function applyBillingHeaders(res) {
   };
   renderBilling(); applyLockState();
 }
+const PLAN_LABELS = { STARTER: 'Starter', PRO: 'Pro', POWER: 'Power' };
+function planLabel(code) { return PLAN_LABELS[code] || code; }
 function renderBilling() {
   const q = $('#quota'); if (!q || !st.billing) return;
   const b = st.billing;
@@ -1909,11 +1920,11 @@ function renderBilling() {
   const exhausted = !b.unlimited && b.creditsRemaining != null && b.creditsRemaining <= 0;
   if (b.unlimited) { q.textContent = 'Admin'; q.title = 'Admin access — no credit limit.'; q.classList.add('pro'); }
   else if (exhausted) {
-    q.textContent = b.isPaid ? (b.plan === 'WEEKLY' ? 'Weekly · 0 AI Credits' : 'Monthly · 0 AI Credits') : 'Free Trial Ended';
+    q.textContent = b.isPaid ? (planLabel(b.plan) + ' · 0 AI Credits') : 'Free Trial Ended';
     q.title = b.isPaid ? "You've used all your AI credits for this plan." : 'Upgrade to keep editing with AI.';
     q.classList.add('trial-done');
   } else {
-    const label = b.isPaid ? (b.plan === 'WEEKLY' ? 'Weekly' : 'Monthly') : 'Free Trial';
+    const label = b.isPaid ? planLabel(b.plan) : 'Free Trial';
     q.textContent = label + ' · ' + b.creditsRemaining + ' AI Credit' + (b.creditsRemaining === 1 ? '' : 's');
     q.title = 'AI credits remaining on your plan.';
     q.classList.toggle('low', b.creditsRemaining <= 1);
@@ -1936,18 +1947,19 @@ async function loadPlans() {
   try { const r = await api('GET', '/api/billing/plans'); st.plans = r.plans; } catch (e) { st.plans = null; }
 }
 function planCardHtml(p) {
-  return `<div class="up-plan${p.recommended ? ' rec' : ''}">${p.recommended ? '<span class="tag">Recommended</span>' : ''}
-    <h4>${esc(p.label)}</h4><div class="price">${esc(p.currency)}${p.price}<small> / ${p.label === 'Weekly' ? 'week' : 'month'}</small></div>
-    <p class="sub" style="margin:2px 0 8px">${p.credits} AI credits</p>
-    <ul>${p.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
-    <button class="btn${p.recommended ? '' : ' ghost'}" type="button" data-plan="${esc(p.plan)}">Choose ${esc(p.label)}</button></div>`;
+  const extraFeatures = (p.features || []).filter(f => f !== 'Never expires' && !/^\d+ AI credits$/.test(f));
+  return `<div class="up-plan${p.recommended ? ' rec' : ''}">${p.recommended ? '<span class="tag">Best Value</span>' : ''}
+    <h4>${esc(p.label)}</h4><div class="price">${esc(p.currency)}${p.price}<small> one-time</small></div>
+    <p class="sub" style="margin:2px 0 8px">${p.credits} AI credits · never expires</p>
+    <ul>${extraFeatures.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
+    <button class="btn${p.recommended ? '' : ' ghost'}" type="button" data-plan="${esc(p.plan)}">Get ${esc(p.label)}</button></div>`;
 }
 function currentPlanSummary() {
   const b = st.billing; if (!b) return 'See your plans and AI credits below.';
   if (b.unlimited) return "You're on an admin account with unlimited AI credits.";
-  const planName = b.isPaid ? (b.plan === 'WEEKLY' ? 'Weekly' : 'Monthly') : 'Free Trial';
+  const planName = b.isPaid ? planLabel(b.plan) : 'Free Trial';
   const credits = b.creditsRemaining != null ? b.creditsRemaining : 0;
-  return `Current plan: ${planName} — ${credits} AI credit${credits === 1 ? '' : 's'} remaining. Pick a plan below to upgrade or renew anytime.`;
+  return `Current plan: ${planName} — ${credits} AI credit${credits === 1 ? '' : 's'} remaining. Pick a pack below to top up anytime.`;
 }
 async function openUpgradeModal(reason) {
   st.lastUpgradeReason = reason;
@@ -1961,8 +1973,9 @@ async function openUpgradeModal(reason) {
     : "You've used all of your free AI credits. Upgrade ITC Resume to continue improving your resume.";
   if (!st.plans) await loadPlans();
   st.planList = st.plans || [
-    { plan: 'WEEKLY', label: 'Weekly', price: 349, currency: '₹', credits: 15, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Job Description matching', 'Resume version history'] },
-    { plan: 'MONTHLY', label: 'Monthly', price: 649, currency: '₹', credits: 30, recommended: true, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Job Description matching', 'Resume version history'] }
+    { plan: 'STARTER', label: 'Starter', price: 149, currency: '₹', credits: 10, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Job Description matching', 'Resume version history'] },
+    { plan: 'PRO', label: 'Pro', price: 299, currency: '₹', credits: 25, recommended: true, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Job Description matching', 'Resume version history'] },
+    { plan: 'POWER', label: 'Power', price: 499, currency: '₹', credits: 50, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Job Description matching', 'Resume version history'] }
   ];
   $('#upGrid').innerHTML = st.planList.map(planCardHtml).join('');
   const d = $('#upgradeDlg'); if (d.showModal) d.showModal(); else d.setAttribute('open', '');

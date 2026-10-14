@@ -241,7 +241,7 @@ function openUser(id, note) {
   <h3 style="font-size:19px;margin:0 0 8px">Grant subscription</h3>
   <p class="dsc">Use this after verifying a real payment yourself (UPI, bank transfer, etc.) — it never charges the user, it only records the access you're granting.</p>
   <div class="grid">
-    <div class="field"><label for="subPlan">Plan</label><select id="subPlan"><option value="WEEKLY">Weekly — ₹349 (15 credits)</option><option value="MONTHLY">Monthly — ₹649 (30 credits)</option></select></div>
+    <div class="field"><label for="subPlan">Plan</label><select id="subPlan"><option value="STARTER">Starter — ₹149 (10 credits)</option><option value="PRO">Pro — ₹299 (25 credits)</option><option value="POWER">Power — ₹499 (50 credits)</option></select></div>
     <div class="field"><label for="subStatus">Status</label><select id="subStatus"><option value="ACTIVE">Active</option><option value="EXPIRED">Expired</option></select></div>
     <div class="field"><label for="subStart">Start date</label><input id="subStart" type="date" value="${toDateInput(Date.now())}"></div>
     <div class="field"><label for="subEnd">End date</label><input id="subEnd" type="date" value="${toDateInput(Date.now() + 7 * 864e5)}"></div>

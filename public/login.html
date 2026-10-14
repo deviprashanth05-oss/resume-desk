@@ -7,14 +7,16 @@
 <meta name="theme-color" content="#0F1B33">
 <link rel="icon" href="/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600;1,700&family=Poppins:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#E8ECF3; --panel:#F7F9FC; --panel2:#FFFFFF; --ink:#0F1B33; --muted:#586580; --line:#D3DAE6;
   --accent:#2848D9; --accent-ink:#FFFFFF; --tint:#E8EDFC; --hl:#FFE066;
   --ok:#157347; --warn:#985000; --bad:#B3261E; --dots:#CDD5E3;
-  --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Tamil","Noto Sans Devanagari","Noto Sans",Arial,sans-serif;
-  --serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --accent2:#7B5CFF; --grad:linear-gradient(135deg,var(--accent),var(--accent2));
+  --sans:"Poppins",system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Tamil","Noto Sans Devanagari","Noto Sans",Arial,sans-serif;
+  --serif:"Playfair Display",Georgia,"Times New Roman",serif;
+  --wordmark:"Space Grotesk",var(--sans);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){--bg:#0C1220;--panel:#131A2A;--panel2:#1A2336;--ink:#E8EDF7;--muted:#9AA7BF;--line:#28334A;--accent:#8EA5FF;--accent-ink:#0C1220;--tint:#1E2947;--ok:#5FD39A;--warn:#F0B35A;--bad:#FF8A80;--dots:#1E283C}
@@ -48,7 +50,9 @@ button{cursor:pointer}
 .field small{color:var(--muted);font-size:12.5px}
 .err{color:var(--bad);font-size:13.5px;margin:0 0 12px}
 .logo{display:inline-flex;align-items:center;gap:10px;color:inherit;text-decoration:none}
-.logo span{font:400 25px/1 var(--serif);letter-spacing:.005em}
+.logo span{font:700 25px/1 var(--wordmark);letter-spacing:-.01em}
+.logo span .wm-accent{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.brandside .logo span .wm-accent{background:none;color:#fff}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 15px;border-radius:12px;font-size:14px;max-width:90vw;z-index:50;box-shadow:0 12px 30px -10px rgba(0,0,0,.5)}
 dialog{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--ink);padding:20px;width:min(520px,92vw)}
 dialog::backdrop{background:rgba(10,15,28,.55)}
@@ -97,7 +101,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 <body>
 <div class="wrap">
   <section class="brandside">
-    <a class="logo" href="/login"><img src="/logo.png" width="30" height="30" alt="" style="object-fit:contain"><span>{{APP_NAME}}</span></a>
+    <a class="logo" href="/login"><img src="/logo.png" width="30" height="30" alt="" style="object-fit:contain"><span><span class="wm-accent">ITC</span> Resume</span></a>
     <div class="mid">
       <h1>Your resume, built by talking.</h1>
       <p class="lead">Upload your old resume or describe your work in Tanglish or English. Get a clean, ATS-friendly resume in minutes.</p>
@@ -107,7 +111,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
   </section>
   <section class="formside">
     <div class="card">
-      <a class="logo mlogo" href="/login"><img src="/logo.png" width="30" height="30" alt="" style="object-fit:contain"><span>{{APP_NAME}}</span></a>
+      <a class="logo mlogo" href="/login"><img src="/logo.png" width="30" height="30" alt="" style="object-fit:contain"><span><span class="wm-accent">ITC</span> Resume</span></a>
       <div class="banner" id="ann" hidden></div>
       <h2 id="title">Welcome back</h2>
       <p class="sub" id="sub">Sign in to open your saved resumes.</p>
