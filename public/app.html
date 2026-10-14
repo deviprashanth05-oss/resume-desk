@@ -895,7 +895,12 @@ const ATS_CONFIG = {
   // percentages per spec; DO NOT alter arbitrarily. Each of the 13 detailed test
   // categories (see computeATSCompatibility) rolls up into exactly one of these 8 buckets,
   // so the score is explainable at both a fine-grained test level and this clean summary.
-  modeAWeights: { parsing: 20, formatting: 15, skillsDiscoverability: 15, contentEvidence: 15, experienceQuality: 10, projectQuality: 5, contentCompleteness: 5, structuralConsistency: 15 },
+  // Rebalanced (Oct 2026): structural/parsing checks (parsing+formatting+skillsDiscoverability+
+  // contentCompleteness+structuralConsistency) used to total 70% of the score, so a resume could be
+  // vague, unquantified and completely unevidenced and still score 85+ purely by being well-formed.
+  // Content-quality checks (contentEvidence+experienceQuality+projectQuality) now carry equal weight
+  // (50/50) with structural checks, verified against synthetic test resumes — see delivery notes.
+  modeAWeights: { parsing: 15, formatting: 10, skillsDiscoverability: 10, contentEvidence: 20, experienceQuality: 20, projectQuality: 10, contentCompleteness: 5, structuralConsistency: 10 },
   // Mode B — Job Description Match, only computed once a JD is supplied. Fixed percentages per spec.
   jobMatchWeights: { requiredSkills: 25, preferredSkills: 10, experienceResponsibility: 20, toolMatch: 10, roleAlignment: 10, educationCert: 5, domainMatch: 5, semanticRelevance: 15 },
   semanticThreshold: 0.42,     // min overlap score to count as a semantic (fuzzy) match
@@ -1502,7 +1507,10 @@ function testsReadingOrder(r, meta) {
    (duplicate-keyword diminishing returns, satisfied by construction: presence is binary). */
 function testsContentEvidence(r) {
   const allItems = r.skills.flatMap(g => g.items), out = [];
-  if (!allItems.length) return [T('N00', 'Content Evidence', 'Content evidence evaluated', 0, 'NA', 'No skills listed to check evidence for.', '')];
+  // A resume with no Skills section at all is not "not applicable" \u2014 it is a real, scorable
+  // weakness (ATS keyword filters have nothing to match against), so this now FAILs the whole
+  // 15-point group instead of being excluded (NA) from the score entirely.
+  if (!allItems.length) return [T('N00', 'Content Evidence', 'Skills are backed up by experience or project evidence', 15, 'FAIL', 'No Skills section was found, so skill evidence cannot be demonstrated anywhere.', 'Add a Skills section, and where genuinely true, show key skills inside an experience or project bullet too.')];
   const bulletsWithSrc = resumeBulletsWithSource(r).filter(b => b.source === 'experience' || b.source === 'project');
   let strong = 0, weak = 0;
   const strongExamples = [], weakExamples = [];
@@ -1514,18 +1522,24 @@ function testsContentEvidence(r) {
     else { weak++; if (weakExamples.length < 5) weakExamples.push(skill); }
   });
   const ratio = strong / allItems.length;
-  out.push(T('N01', 'Content Evidence', 'Skills are backed up by experience or project evidence, not just listed', 8, ratio >= 0.5 ? 'PASS' : ratio > 0 ? 'WARNING' : 'FAIL',
+  // Thresholds tightened and weight shifted onto this primary ratio test \u2014 the two secondary
+  // tests below used to let a resume with mostly-unsupported skills still earn most of this
+  // bucket's credit just for having "at least one" evidenced skill.
+  out.push(T('N01', 'Content Evidence', 'Skills are backed up by experience or project evidence, not just listed', 9, ratio >= 0.6 ? 'PASS' : ratio > 0 ? 'WARNING' : 'FAIL',
     strong + ' of ' + allItems.length + ' skill(s) demonstrated in a real bullet.' + (strongExamples.length ? ' e.g. ' + strongExamples[0] : ''),
     'Where genuinely true, mention key skills inside an experience or project bullet, not only in the Skills list.'));
-  out.push(T('N02', 'Content Evidence', 'At least one skill has strong, specific evidence', 4, strong > 0 ? 'PASS' : 'WARNING', strong > 0 ? (strong + ' skill(s) with direct evidence.') : 'No skill could be matched to a specific accomplishment.', 'Connect a real accomplishment to one of your listed skills.'));
-  out.push(T('N03', 'Content Evidence', 'Evidence-only skills are a minority', 3, (weak / allItems.length) <= 0.7 ? 'PASS' : 'WARNING', weak + ' of ' + allItems.length + ' skill(s) appear only in the Skills list with no supporting evidence.', 'Do not add more unsupported skills \u2014 add evidence for the ones you already have.'));
+  out.push(T('N02', 'Content Evidence', 'At least one skill has strong, specific evidence', 2, strong > 0 ? 'PASS' : 'WARNING', strong > 0 ? (strong + ' skill(s) with direct evidence.') : 'No skill could be matched to a specific accomplishment.', 'Connect a real accomplishment to one of your listed skills.'));
+  out.push(T('N03', 'Content Evidence', 'Evidence-only skills are a minority', 4, (weak / allItems.length) <= 0.5 ? 'PASS' : (weak / allItems.length) <= 0.75 ? 'WARNING' : 'FAIL', weak + ' of ' + allItems.length + ' skill(s) appear only in the Skills list with no supporting evidence.', 'Do not add more unsupported skills \u2014 add evidence for the ones you already have.'));
   return out;
 }
 
 /* ---------- O. Experience Quality (how the experience is WRITTEN, not just whether it parses) ---------- */
 const IRREGULAR_VERBS = 'built led ran wrote drove made took won taught sold grew began chose brought held kept met set spent taught thought understood won cut put'.split(' ');
 const BASE_VERBS = 'build create develop design lead manage improve reduce increase automate analyze analyse implement launch deliver optimize optimise streamline coordinate negotiate train mentor migrate architect deploy resolve identify generate drive establish redesign scale own ship spearhead engineer conduct perform utilize utilise extract clean visualize visualise forecast predict compile monitor prepare track maintain support collaborate execute integrate evaluate apply leverage document review validate write present research test debug model query report audit plan organize organise administer handle process assess measure map define drive summarize summarise contribute participate volunteer serve teach sell'.split(' ');
-const NOT_VERBS = new Set(['based', 'need', 'need', 'speed', 'seed', 'feed', 'bed', 'red', 'hundred', 'indeed', 'embed', 'proceed', 'succeed', 'exceed', 'weed', 'creed', 'bleed', 'breed', 'deed']);
+const NOT_VERBS = new Set(['based', 'need', 'need', 'speed', 'seed', 'feed', 'bed', 'red', 'hundred', 'indeed', 'embed', 'proceed', 'succeed', 'exceed', 'weed', 'creed', 'bleed', 'breed', 'deed',
+  // Weak/filler "-ed" starters that technically match the past-tense heuristic but read as vague
+  // phrasing, not a strong action verb (these are also what VAGUE_PHRASES below flags).
+  'worked', 'helped', 'involved', 'assisted']);
 // True when a bullet opens with a genuine action verb: an irregular past-tense verb, a common base
 // form, or a regular past-tense "-ed" word (Analyzed, Extracted, Visualized...).
 function startsWithActionVerb(text) {
@@ -1537,16 +1551,20 @@ function startsWithActionVerb(text) {
 const VAGUE_PHRASES = /\b(responsible for|worked (on|with)|helped (with|to)|involved in|assisted (with|in)|duties included)\b/i;
 function testsExperienceQuality(r) {
   const bullets = resumeBulletsWithSource(r).filter(b => b.source === 'experience').map(b => b.text);
-  if (!bullets.length) return [T('O00', 'Experience Quality', 'Experience quality evaluated', 0, 'NA', 'No experience bullets to evaluate.', '')];
+  // Genuinely no Experience section at all (e.g. a fresher relying on Projects) stays NA \u2014 that is
+  // a real, legitimate "not applicable", not a weakness. But if experience ENTRIES exist with zero
+  // bullets, that is a real completeness problem and must FAIL this 10-point group, not be excluded.
+  if (!r.experience.length) return [T('O00', 'Experience Quality', 'Experience quality evaluated', 0, 'NA', 'No Experience section \u2014 not applicable.', '')];
+  if (!bullets.length) return [T('O00', 'Experience Quality', 'Experience entries describe what was done', 10, 'FAIL', r.experience.length + ' experience entr(y/ies) have no bullet points describing the role.', 'Add at least 2\u20134 bullet points under each role describing what you did and the result.')];
   const out = [];
   const withVerb = bullets.filter(b => startsWithActionVerb(b)).length / bullets.length;
-  out.push(T('O01', 'Experience Quality', 'Bullets start with a strong action verb', 4, withVerb >= 0.6 ? 'PASS' : withVerb > 0 ? 'WARNING' : 'FAIL', Math.round(withVerb * 100) + '% start with a clear action verb.', 'Start bullets with a specific action verb (Built, Led, Analyzed...) instead of a noun or "Responsible for".'));
+  out.push(T('O01', 'Experience Quality', 'Bullets start with a strong action verb', 4, withVerb >= 0.7 ? 'PASS' : withVerb > 0 ? 'WARNING' : 'FAIL', Math.round(withVerb * 100) + '% start with a clear action verb.', 'Start bullets with a specific action verb (Built, Led, Analyzed...) instead of a noun or "Responsible for".'));
   const vague = bullets.filter(b => VAGUE_PHRASES.test(b)).length;
   out.push(T('O02', 'Experience Quality', 'Avoids vague, passive phrasing', 3, vague === 0 ? 'PASS' : vague / bullets.length < 0.3 ? 'WARNING' : 'FAIL', vague === 0 ? 'No vague filler phrases found.' : (vague + ' bullet(s) use vague phrasing like "responsible for" or "worked on".'), 'Replace vague phrasing with the specific action you took and its result.'));
   const quant = bullets.filter(b => /\d/.test(b)).length / bullets.length;
   out.push(T('O03', 'Experience Quality', 'Results are quantified where possible', 2, quant >= ATS_CONFIG.quantifiedTarget ? 'PASS' : 'WARNING', Math.round(quant * 100) + '% of bullets include a number.', 'Add a real number (%, count, time, money) only where one genuinely exists \u2014 never invent one.'));
   const specific = bullets.filter(b => b.split(/\s+/).length >= 8).length / bullets.length;
-  out.push(T('O04', 'Experience Quality', 'Bullets are specific enough to be meaningful', 1, specific >= 0.6 ? 'PASS' : 'WARNING', Math.round(specific * 100) + '% of bullets have enough detail to be specific.', 'Expand short bullets with the tool, method or outcome involved.'));
+  out.push(T('O04', 'Experience Quality', 'Bullets are specific enough to be meaningful', 1, specific >= 0.65 ? 'PASS' : 'WARNING', Math.round(specific * 100) + '% of bullets have enough detail to be specific.', 'Expand short bullets with the tool, method or outcome involved.'));
   return out;
 }
 
@@ -1585,7 +1603,8 @@ function detectKeywordStuffing(r) {
 // applicable doesn't silently drag the score down as if it had failed everything.
 function bucketRatio(tests) {
   let e = 0, m = 0;
-  tests.forEach(t => { if (t.status === 'NA') return; m += t.weight; e += t.status === 'PASS' ? t.weight : t.status === 'WARNING' ? t.weight * 0.5 : 0; });
+  // A WARNING now earns 35% credit, not 50% — a real, named issue should cost more than a coin flip.
+  tests.forEach(t => { if (t.status === 'NA') return; m += t.weight; e += t.status === 'PASS' ? t.weight : t.status === 'WARNING' ? t.weight * 0.35 : 0; });
   return m ? e / m : null;
 }
 function computeATSCompatibility(r, meta) {
@@ -1642,7 +1661,7 @@ function computeATSCompatibility(r, meta) {
   const applicable = allTests.length - naCount;
   const confidence = applicable === 0 ? 'LOW' : (naCount / allTests.length) < 0.15 ? 'HIGH' : (naCount / allTests.length) < 0.4 ? 'MEDIUM' : 'LOW';
   const categories = {};
-  for (const label in detail) { let e = 0, m = 0; detail[label].forEach(t => { if (t.status === 'NA') return; m += t.weight; e += t.status === 'PASS' ? t.weight : t.status === 'WARNING' ? t.weight * 0.5 : 0; }); categories[label] = { earned: Math.round(e), max: m, tests: detail[label] }; }
+  for (const label in detail) { let e = 0, m = 0; detail[label].forEach(t => { if (t.status === 'NA') return; m += t.weight; e += t.status === 'PASS' ? t.weight : t.status === 'WARNING' ? t.weight * 0.35 : 0; }); categories[label] = { earned: Math.round(e), max: m, tests: detail[label] }; }
   const bySeverity = t => t.severity === 'high' ? 0 : 1;
   const topRisks = allTests.filter(t => t.status === 'FAIL' || t.status === 'WARNING').sort((a, b) => bySeverity(a) - bySeverity(b)).slice(0, 6);
   const fixes = allTests.filter(t => t.status !== 'PASS' && t.status !== 'NA' && t.remediation);
