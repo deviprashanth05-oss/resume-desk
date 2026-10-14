@@ -107,6 +107,7 @@ svg.ic{flex:none}
 .btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:9px 16px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:transform .15s ease,box-shadow .15s ease,filter .15s}
 .btn:hover:not(:disabled){filter:brightness(1.07)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
+.pill:disabled{opacity:.45;cursor:not-allowed}
 .btn.sm{padding:6px 12px;font-size:13.5px;border-radius:9px}
 .btn.lg{padding:12px 20px;font-size:15.5px;border-radius:12px;background:var(--grad);box-shadow:0 10px 24px -10px color-mix(in srgb,var(--accent) 55%,transparent)}
 .btn.lg:hover:not(:disabled){filter:none;transform:translateY(-2px);box-shadow:0 14px 28px -10px color-mix(in srgb,var(--accent) 60%,transparent)}
@@ -349,6 +350,13 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 #quota.trial-done{color:var(--bad);border-color:var(--bad)}
 #quota.pro{color:var(--ok);border-color:var(--ok)}
 #upgradeDlg{width:min(680px,94vw)}
+#previewDlg{width:min(920px,96vw)}
+#previewDlg #prevSeg{margin-top:2px}
+.prev-body{max-height:62vh;overflow:auto;margin:14px 0;border-radius:10px;background:var(--bg2,#0d1526)}
+.prev-body .paper{box-shadow:none;margin:0 auto}
+.prev-ats{white-space:pre-wrap;word-break:break-word;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:16px;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--ink);margin:0}
+.prev-empty,.prev-error{color:var(--muted);font-size:13.5px;padding:24px 4px;text-align:center}
+@media (max-width:640px){.prev-body{max-height:54vh}}
 #upgradeDlg h3{font-size:24px}
 .up-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0 6px}
 .up-plan{border:1px solid var(--line);border-radius:14px;padding:18px;background:var(--panel2);position:relative;transition:transform .25s ease,box-shadow .25s ease}
@@ -507,6 +515,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
         <button class="pill" id="undo" type="button" hidden data-ic="undo"><span>Undo</span></button>
         <button class="pill" id="clearHl" type="button" hidden>Clear highlights</button>
         <button class="pill" id="historyBtn" type="button" title="Resume version history">History</button>
+        <button class="pill" id="previewBtn" type="button" title="See your resume as a recruiter or as an ATS would see it">Preview</button>
         <span class="tb-sp"></span>
         <span class="pill" id="pages" title="Estimated. The PDF may break slightly differently.">—</span>
         <button class="pill" id="scoreChip" type="button" title="Open ATS readiness"><i class="dot" id="scoreDot"></i><span id="scoreTxt">ATS —</span></button>
@@ -588,6 +597,17 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
   <p class="dsc">Every named version of this resume. Restoring a version replaces your current draft — you can always undo right after with Ctrl/Cmd+Z style Undo.</p>
   <div class="histlist" id="histList"></div>
   <div class="row"><button type="button" class="btn ghost" id="histClose">Close</button></div>
+</dialog>
+
+<dialog id="previewDlg" aria-label="Resume preview">
+  <h3>Resume Preview</h3>
+  <p class="dsc">See exactly what a recruiter sees next to what an ATS actually extracts from your resume — the same data, two ways.</p>
+  <div class="seg" role="group" aria-label="Preview mode" id="prevSeg">
+    <button type="button" id="prevTabRec" aria-pressed="true">What Recruiters See</button>
+    <button type="button" id="prevTabAts" aria-pressed="false">What ATS Sees</button>
+  </div>
+  <div class="prev-body" id="prevBody"></div>
+  <div class="row"><button type="button" class="btn ghost" id="prevClose">Close</button></div>
 </dialog>
 
 <div id="toast" role="status" hidden></div>
@@ -2638,6 +2658,77 @@ async function improveResume() {
 
 
 
+/* ---------- resume preview: "What Recruiters See" vs "What ATS Sees" ----------
+   Reuses the canonical resume model (sections()/contactList()) and the same
+   #paper markup the live editor renders — no second resume-rendering engine,
+   no second ATS engine. This only adds a read-only plain-text extraction
+   view, since nothing like it existed before. */
+function atsExtractText(r) {
+  if (!r || isEmpty(r)) return '';
+  const lines = [];
+  if (r.name) lines.push(r.name);
+  if (r.headline) lines.push(r.headline);
+  const c = r.contact || {};
+  const addField = (label, v) => { if (v) lines.push(label + ': ' + v); };
+  addField('Email', c.email); addField('Phone', c.phone); addField('Location', c.location);
+  addField('LinkedIn', c.linkedin); addField('GitHub', c.github); addField('Website', c.website);
+  sections(r).forEach(s => {
+    lines.push('', s.h.toUpperCase());
+    if (s.type === 'para') { if (s.text) lines.push(s.text); }
+    else if (s.type === 'skills') s.groups.forEach(g => { if (g.items.length) lines.push((g.group ? g.group + ': ' : '') + g.items.join(', ')); });
+    else if (s.type === 'exp') s.items.forEach(e => {
+      const head = [e.title, e.company].filter(Boolean).join(' — '); const dt = fmtDates(e);
+      if (head) lines.push(head + (dt ? ' (' + dt + ')' : ''));
+      if (e.location) lines.push(e.location);
+      e.bullets.forEach(b => { if (b) lines.push('• ' + b); });
+    });
+    else if (s.type === 'proj') s.items.forEach(p => {
+      const head = [p.name, p.tech ? ('Tech: ' + p.tech) : ''].filter(Boolean).join(' — ');
+      if (head) lines.push(head);
+      if (p.link) lines.push(p.link);
+      p.bullets.forEach(b => { if (b) lines.push('• ' + b); });
+    });
+    else if (s.type === 'edu') s.items.forEach(e => {
+      const head = [e.degree, e.school].filter(Boolean).join(', ') + (e.year ? ' (' + e.year + ')' : '');
+      if (head.trim()) lines.push(head);
+      if (e.location) lines.push(e.location);
+      if (e.details) lines.push(e.details);
+    });
+    else if (s.type === 'list') s.items.forEach(it => { if (it) lines.push('• ' + it); });
+  });
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+function renderPreviewBody(mode) {
+  const body = $('#prevBody'); if (!body) return;
+  const r = st.resume;
+  if (isEmpty(r)) { body.innerHTML = '<p class="prev-empty">Add your resume first — there is nothing to preview yet.</p>'; return; }
+  try {
+    if (mode === 'ats') {
+      const txt = atsExtractText(r);
+      const pre = document.createElement('pre'); pre.className = 'prev-ats';
+      pre.textContent = txt || '(Nothing could be extracted from this resume yet.)';
+      body.innerHTML = ''; body.appendChild(pre);
+    } else {
+      const liveSrc = $('#paper');
+      if (!liveSrc || !liveSrc.innerHTML) { body.innerHTML = '<p class="prev-empty">Add your resume first — there is nothing to preview yet.</p>'; return; }
+      const wrap = document.createElement('div');
+      wrap.className = 'paper ' + st.tpl; wrap.style.setProperty('--ac', accentNow());
+      wrap.innerHTML = liveSrc.innerHTML;
+      body.innerHTML = ''; body.appendChild(wrap);
+    }
+  } catch (e) { body.innerHTML = '<p class="prev-error">Could not build the preview. Please try again.</p>'; }
+}
+function setPreviewTab(mode) {
+  $('#prevTabRec').setAttribute('aria-pressed', String(mode !== 'ats'));
+  $('#prevTabAts').setAttribute('aria-pressed', String(mode === 'ats'));
+  renderPreviewBody(mode);
+}
+function openPreview() {
+  const d = $('#previewDlg'); if (!d) return;
+  setPreviewTab('rec');
+  if (d.showModal) d.showModal(); else d.setAttribute('open', '');
+}
+
 /* ---------- paper ---------- */
 function renderPaper() {
   const r = st.resume, empty = isEmpty(r);
@@ -2677,6 +2768,7 @@ function renderToolbar() {
   $('#sw').innerHTML = ACCENTS.map(a => `<button type="button" style="background:${a.v}" data-v="${a.v}" aria-label="${a.n} accent" aria-pressed="${accentNow() === a.v}" title="${a.n}"></button>`).join('');
   $('#undo').hidden = !st.prev.length; $('#clearHl').hidden = !st.hlBase;
   const empty = isEmpty(st.resume);
+  $('#previewBtn').disabled = empty;
   const sc = empty ? 0 : computeATSCompatibility(st.resume, st.importMeta).total;
   $('#scoreTxt').textContent = empty ? 'ATS' : 'ATS ' + sc; $('#scoreDot').className = 'dot' + (empty ? '' : sc >= 80 ? ' g' : sc >= 60 ? ' a' : ' r');
   ['#tplClassic', '#tplClean'].forEach(s => { $(s).disabled = false; });
@@ -2773,6 +2865,10 @@ function wire() {
   });
   $('#historyBtn').addEventListener('click', openHistory);
   $('#histClose').addEventListener('click', () => { const d = $('#histDlg'); if (d.close) d.close(); else d.removeAttribute('open'); });
+  $('#previewBtn').addEventListener('click', openPreview);
+  $('#prevTabRec').addEventListener('click', () => setPreviewTab('rec'));
+  $('#prevTabAts').addEventListener('click', () => setPreviewTab('ats'));
+  $('#prevClose').addEventListener('click', () => { const d = $('#previewDlg'); if (d.close) d.close(); else d.removeAttribute('open'); });
   $('#histList').addEventListener('click', e => { const b = e.target.closest('button[data-vi]'); if (b) restoreVersion(+b.dataset.vi); });
   $('#matchOut').addEventListener('click', e => { if (e.target.id === 'improveBtn') improveResume(); });
   $('#improveCard').addEventListener('click', e => {
