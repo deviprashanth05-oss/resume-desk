@@ -1902,10 +1902,12 @@ function applyBillingHeaders(res) {
   if (!plan) return;
   const remHeader = res.headers.get('X-Credits-Remaining');
   const allocHeader = res.headers.get('X-Credits-Allocated');
+  const tierHeader = res.headers.get('X-Plan-Tier');
   st.billing = {
     plan,
     unlimited: plan === 'ADMIN',
     isPaid: res.headers.get('X-Is-Paid') === '1',
+    planTier: tierHeader === '' || tierHeader == null ? 0 : +tierHeader,
     creditsRemaining: remHeader === '' || remHeader == null ? null : +remHeader,
     creditsAllocated: allocHeader === '' || allocHeader == null ? null : +allocHeader,
   };
@@ -1932,11 +1934,11 @@ function renderBilling() {
 }
 function applyLockState() {
   const b = st.billing;
-  // Job Match (the JD panel) is a paid-plan-only feature regardless of credit balance —
-  // a Free user with trial credits left still can't use it.
-  const notPaid = !!(b && !b.unlimited && !b.isPaid);
-  const jdTeaser = $('#jdTeaser'); if (jdTeaser) jdTeaser.hidden = !notPaid;
-  const jdBody = $('#jdBody'); if (jdBody) jdBody.classList.toggle('lk-body', notPaid);
+  // Job Match (the JD panel) needs plan tier 2+ (Pro/Power) regardless of credit balance
+  // — a Free user, or a Starter user, with credits left still can't use it.
+  const jdLocked = !!(b && !b.unlimited && (!b.isPaid || (b.planTier || 0) < 2));
+  const jdTeaser = $('#jdTeaser'); if (jdTeaser) jdTeaser.hidden = !jdLocked;
+  const jdBody = $('#jdBody'); if (jdBody) jdBody.classList.toggle('lk-body', jdLocked);
   // ATS Compatibility is available to anyone (free or paid) as long as credits remain;
   // it locks only once the active plan's credit pool is actually empty.
   const exhausted = !!(b && !b.unlimited && b.creditsRemaining != null && b.creditsRemaining <= 0);
@@ -1973,7 +1975,7 @@ async function openUpgradeModal(reason) {
     : "You've used all of your free AI credits. Upgrade ITC Resume to continue improving your resume.";
   if (!st.plans) await loadPlans();
   st.planList = st.plans || [
-    { plan: 'STARTER', label: 'Starter', price: 149, currency: '₹', credits: 10, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Job Description matching', 'Resume version history'] },
+    { plan: 'STARTER', label: 'Starter', price: 149, currency: '₹', credits: 10, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Resume version history'] },
     { plan: 'PRO', label: 'Pro', price: 299, currency: '₹', credits: 25, recommended: true, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Job Description matching', 'Resume version history'] },
     { plan: 'POWER', label: 'Power', price: 499, currency: '₹', credits: 50, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Job Description matching', 'Resume version history'] }
   ];

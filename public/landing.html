@@ -75,8 +75,16 @@ h1 em{font:italic 700 1em/1.1 var(--serif);font-style:italic;background:var(--gr
 .mock .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
 .mock .bubble{background:var(--tint);border-left:3px solid var(--accent);border-radius:4px 14px 14px 14px;padding:10px 13px;font-size:13.5px;margin-bottom:10px;max-width:90%}
 .mock .bubble.me{margin-left:auto;background:var(--panel);border:1px solid var(--line);border-left:1px solid var(--line);border-radius:14px 14px 4px 14px}
-.mock .score{display:flex;justify-content:space-between;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:6px}
+.mock .score{display:flex;justify-content:space-between;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
 .mock .score b{font:700 26px/1 var(--wordmark);color:var(--ok)}
+.hero-slides{position:relative;margin-top:6px;min-height:92px}
+.hslide{position:absolute;inset:0;opacity:0;transform:translateX(16px);transition:opacity .45s ease,transform .45s ease;pointer-events:none}
+.hslide.active{opacity:1;transform:translateX(0);pointer-events:auto;position:relative}
+.hs-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);margin-bottom:6px}
+.hs-dots{display:flex;gap:6px;justify-content:center;margin-top:10px}
+.hs-dots i{width:6px;height:6px;border-radius:50%;background:var(--line);display:inline-block;transition:background .3s,width .3s}
+.hs-dots i.on{background:var(--accent);width:16px;border-radius:3px}
+@media (prefers-reduced-motion: reduce){.hslide{transition:none}}
 
 section.feat{padding:60px 0}
 .feat h2,.ba h2,.how h2,.plans h2{font:600 34px/1.15 var(--serif);text-align:center;margin:0 0 8px}
@@ -103,9 +111,10 @@ section.ba{padding:60px 0}
 .resume-mini{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--panel)}
 .resume-mini .rname{font-weight:700;font-size:14.5px;margin-bottom:2px}
 .resume-mini .rrole{color:var(--muted);font-size:12px;margin-bottom:10px}
-.resume-mini .rline{height:8px;border-radius:4px;background:var(--line);margin-bottom:7px}
-.resume-mini.messy .rline{width:100%}
-.resume-mini.messy .rline:nth-child(odd){width:92%}
+.resume-mini.messy{font-family:Arial,Helvetica,sans-serif}
+.resume-mini.messy .rname{font-weight:400;font-size:13.5px;text-transform:lowercase}
+.resume-mini.messy .rrole{font-size:11.5px;margin-bottom:8px}
+.resume-mini.messy p{margin:0;font-size:11px;line-height:1.55;color:var(--muted)}
 .resume-mini.clean .rtag{display:inline-block;font-size:10.5px;background:var(--tint);color:var(--accent);border-radius:6px;padding:2px 7px;margin:0 5px 6px 0}
 .resume-mini.clean .rbul{display:flex;gap:6px;font-size:11.5px;color:var(--ink);margin-bottom:6px;line-height:1.4}
 .resume-mini.clean .rbul::before{content:"\2713";color:var(--ok);font-weight:700}
@@ -180,7 +189,7 @@ footer a:hover{color:var(--ink)}
       </div>
       <p class="trust">Start with 1 free resume and 3 free AI credits — no payment needed to try it.</p>
       <div class="trustbar">
-        <span><b>✓</b> Tanglish &amp; English chat</span>
+        <span><b>✓</b> Live Resume + ATS preview</span>
         <span><b>✓</b> Rule-based ATS scoring</span>
         <span><b>✓</b> PDF &amp; Word export</span>
       </div>
@@ -191,7 +200,22 @@ footer a:hover{color:var(--ink)}
         <div class="bubble">Upload your resume or tell me what you'd like to improve. I'll optimize it for ATS and highlight every change.</div>
         <div class="bubble me">Rewrite my summary and change the color to navy</div>
         <div class="bubble">Done — I tightened your summary and switched the accent to navy.</div>
-        <div class="score"><span>ATS Compatibility</span><b>88<small style="font-size:13px"> / 100</small></b></div>
+        <div class="hero-slides" id="heroSlides">
+          <div class="hslide active" data-slide="0">
+            <div class="hs-label">Resume</div>
+            <div class="resume-mini clean" style="padding:10px 12px">
+              <div class="rname">Priya Sharma</div>
+              <div class="rrole">Data Analyst · Chennai, India</div>
+              <div style="margin:4px 0 6px"><span class="rtag">SQL</span><span class="rtag">Power BI</span><span class="rtag">Python</span></div>
+              <div class="rbul">Built <mark>10 dashboards</mark> used by 35 store managers</div>
+            </div>
+          </div>
+          <div class="hslide" data-slide="1">
+            <div class="hs-label">ATS Score</div>
+            <div class="score"><span>ATS Compatibility</span><b>88<small style="font-size:13px"> / 100</small></b></div>
+          </div>
+        </div>
+        <div class="hs-dots"><i class="on"></i><i></i></div>
       </div>
     </div>
   </section>
@@ -229,8 +253,7 @@ footer a:hover{color:var(--ink)}
         <div class="resume-mini messy">
           <div class="rname">priya sharma</div>
           <div class="rrole">worked as analyst</div>
-          <div class="rline"></div><div class="rline"></div><div class="rline"></div>
-          <div class="rline" style="width:70%"></div>
+          <p>Responsible for data analysis and reporting for the company. Worked with excel sheets and some sql when required. Helped team with various projects and other tasks as assigned by manager.</p>
         </div>
       </div>
       <div class="ba-arrow reveal d2">
@@ -281,7 +304,7 @@ footer a:hover{color:var(--ink)}
         <p class="credits-note">10 AI credits · never expires</p>
         <ul>
           <li>AI resume editing &amp; rewriting</li>
-          <li>Job Description matching</li>
+          <li>ATS Compatibility Score</li>
           <li>Resume version history</li>
         </ul>
         <a class="btn ghost" style="width:100%;justify-content:center" href="/login?mode=signup">Get started</a>
@@ -326,6 +349,19 @@ document.getElementById('yr').textContent = new Date().getFullYear();
     entries.forEach(function(en){ if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
   }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
   els.forEach(function(el){ io.observe(el); });
+})();
+(function(){
+  var slides = document.querySelectorAll('#heroSlides .hslide');
+  var dots = document.querySelectorAll('.hs-dots i');
+  if (!slides.length) return;
+  var i = 0;
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMotion) return;
+  setInterval(function(){
+    i = (i + 1) % slides.length;
+    slides.forEach(function(s, idx){ s.classList.toggle('active', idx === i); });
+    dots.forEach(function(d, idx){ d.classList.toggle('on', idx === i); });
+  }, 3400);
 })();
 </script>
 </body>
