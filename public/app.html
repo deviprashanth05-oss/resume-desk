@@ -354,9 +354,45 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 #previewDlg #prevSeg{margin-top:2px}
 .prev-body{max-height:62vh;overflow:auto;margin:14px 0;border-radius:10px;background:var(--bg2,#0d1526)}
 .prev-body .paper{box-shadow:none;margin:0 auto}
-.prev-ats{white-space:pre-wrap;word-break:break-word;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:16px;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--ink);margin:0}
+.prev-ats{white-space:pre-wrap;word-break:break-word;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:16px;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--ink);margin:0;max-height:260px;overflow:auto}
 .prev-empty,.prev-error{color:var(--muted);font-size:13.5px;padding:24px 4px;text-align:center}
 @media (max-width:640px){.prev-body{max-height:54vh}}
+/* ATS parsing workspace (Section A/B/C) */
+.ats-ws{display:flex;flex-direction:column;gap:18px}
+.ats-section{border-top:1px solid var(--line);padding-top:14px}
+.ats-section:first-child{border-top:0;padding-top:0}
+.ats-sechead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.ats-sechead h4{margin:0;font:400 18px/1.2 var(--serif)}
+.ats-tag{font-size:11px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:2px 9px;white-space:nowrap}
+.ats-notebox{margin:0 0 10px;font-size:12.5px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.ats-card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+.ats-card h5{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);display:flex;align-items:center;gap:8px}
+.ats-field{display:grid;grid-template-columns:120px 1fr auto;gap:8px;align-items:baseline;padding:3px 0;font-size:13px}
+.ats-flabel{color:var(--muted)}
+.ats-fval{font-size:13px}
+.ats-badge{font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.ats-badge.ok{background:rgba(34,197,94,.15);color:#22c55e}
+.ats-badge.miss{background:rgba(239,68,68,.15);color:#ef4444}
+.ats-badge.warn{background:rgba(234,179,8,.18);color:#eab308}
+.ats-badge.na{background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
+.ats-sub{padding:8px 0;border-top:1px dashed var(--line)}
+.ats-sub:first-of-type{border-top:0}
+.ats-sub b{font-size:13.5px}
+.ats-dt{float:right;color:var(--muted);font-size:12px}
+.ats-muted{color:var(--muted);font-size:12.5px;margin-top:2px}
+.ats-empty{color:var(--muted);font-size:12.5px;margin:0}
+.ats-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.ats-chip{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:12px}
+.ats-sub ul{margin:4px 0 0;padding-left:1.1em;font-size:12.5px}
+.ats-diagsum{font-size:12.5px;color:var(--muted);margin-bottom:10px}
+.ats-diaggrp{background:var(--panel2);border:1px solid var(--line);border-radius:10px;margin-bottom:8px;padding:0}
+.ats-diaggrp summary{cursor:pointer;padding:10px 14px;font-size:13.5px;font-weight:600;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ats-diaggrp summary::-webkit-details-marker{display:none}
+.ats-issuect{font-size:11px;font-weight:600;color:#eab308}
+.ats-okct{font-size:11px;font-weight:600;color:#22c55e}
+.ats-test{padding:8px 14px;border-top:1px solid var(--line)}
+.ats-testhead{display:flex;align-items:center;gap:8px;font-size:12.5px}
+.ats-fix{margin:3px 0 0;font-size:12px;color:var(--muted)}
 #upgradeDlg h3{font-size:24px}
 .up-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0 6px}
 .up-plan{border:1px solid var(--line);border-radius:14px;padding:18px;background:var(--panel2);position:relative;transition:transform .25s ease,box-shadow .25s ease}
@@ -2016,10 +2052,12 @@ async function openUpgradeModal(reason) {
     ? currentPlanSummary()
     : "You've used all of your free AI credits. Upgrade ITC Resume to continue improving your resume.";
   if (!st.plans) await loadPlans();
-  const FEATURE_LIST = ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Resume version history', 'Job Description matching'];
+  // Fallback only, used if /api/billing/plans couldn't be reached — kept in sync with
+  // lib/billing.js's PLANS by hand since this copy can't import that server module.
+  const FEATURE_LIST = ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Resume version history', 'Job Description matching', 'AI Job Description tailoring'];
   st.planList = st.plans || [
-    { plan: 'STARTER', label: 'Starter', price: 149, currency: '₹', credits: 10, features: FEATURE_LIST, excluded: ['Job Description matching'] },
-    { plan: 'PRO', label: 'Pro', price: 299, currency: '₹', credits: 25, recommended: true, features: FEATURE_LIST, excluded: [] },
+    { plan: 'STARTER', label: 'Starter', price: 149, currency: '₹', credits: 10, features: FEATURE_LIST, excluded: ['Job Description matching', 'AI Job Description tailoring'] },
+    { plan: 'PRO', label: 'Pro', price: 299, currency: '₹', credits: 25, recommended: true, features: FEATURE_LIST, excluded: ['AI Job Description tailoring'] },
     { plan: 'POWER', label: 'Power', price: 499, currency: '₹', credits: 50, features: FEATURE_LIST, excluded: [] }
   ];
   $('#upGrid').innerHTML = st.planList.map(planCardHtml).join('');
@@ -2670,7 +2708,15 @@ async function improveResume() {
       flaggedSkills: [...flaggedSkills].map(displaySkill)
     };
     renderAts();
-  } catch (e) { toast(e && e.code ? errCopy(e) : 'Could not generate improvements. Try again.'); }
+  } catch (e) {
+    // A Pro plan can run Job Match but not AI tailoring (Power-only) — surface that as a
+    // clear upgrade prompt, the same path the chat/Job-Match gates already use, instead of
+    // a generic toast that doesn't tell the user why or what to do about it.
+    // billing headers from this failed request were already applied inside serverJson()
+    // before it threw, so st.billing is already current here.
+    if (e && e.code === 'locked_feature') { renderBilling(); applyLockState(); openUpgradeModal('locked'); }
+    else toast(e && e.code ? errCopy(e) : 'Could not generate improvements. Try again.');
+  }
   if (btn) { btn.disabled = false; btn.textContent = 'Improve My Resume'; }
 }
 
@@ -2717,16 +2763,81 @@ function atsExtractText(r) {
   });
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
+/* ---------- ATS workspace: Section B (Parsed Information) ----------
+   Every value here is read straight off the same canonical resume object
+   the editor/export use — no inference, nothing invented. "Found" just
+   means the field is non-empty; "Not found in resume" means it is empty
+   in your actual data, not that it was lost during some separate parse. */
+function fStat(found) { return found ? '<span class="ats-badge ok">Found</span>' : '<span class="ats-badge miss">Not found in resume</span>'; }
+function fRow(label, value) { return '<div class="ats-field"><span class="ats-flabel">' + esc(label) + '</span><span class="ats-fval">' + (value ? esc(value) : '<i>—</i>') + '</span>' + fStat(!!value) + '</div>'; }
+function atsParsedFieldsHtml(r) {
+  let h = '';
+  h += '<div class="ats-card"><h5>Identity &amp; Contact</h5>' + fRow('Name', r.name) + fRow('Headline / Title', r.headline) + fRow('Email', r.contact.email) + fRow('Phone', r.contact.phone) + fRow('Location', r.contact.location) + fRow('LinkedIn', r.contact.linkedin) + fRow('GitHub', r.contact.github) + fRow('Website', r.contact.website) + '</div>';
+  h += '<div class="ats-card"><h5>Professional Summary</h5>' + (r.summary ? '<p class="ats-fval">' + esc(r.summary) + '</p>' + fStat(true) : '<p class="ats-fval"><i>—</i></p>' + fStat(false)) + '</div>';
+  h += '<div class="ats-card"><h5>Work Experience' + fStat(r.experience.length > 0) + '</h5>';
+  if (!r.experience.length) h += '<p class="ats-empty">No experience entries found in resume.</p>';
+  else r.experience.forEach(e => { h += '<div class="ats-sub"><b>' + esc([e.title, e.company].filter(Boolean).join(' at ') || '(untitled role)') + '</b><span class="ats-dt">' + esc(fmtDates(e)) + '</span>' + (e.location ? '<div class="ats-muted">' + esc(e.location) + '</div>' : '') + (e.bullets.length ? '<ul>' + e.bullets.map(b => '<li>' + esc(b) + '</li>').join('') + '</ul>' : '<p class="ats-muted">No bullet points extracted for this role.</p>') + '</div>'; });
+  h += '</div>';
+  h += '<div class="ats-card"><h5>Education' + fStat(r.education.length > 0) + '</h5>';
+  if (!r.education.length) h += '<p class="ats-empty">No education entries found in resume.</p>';
+  else r.education.forEach(e => { h += '<div class="ats-sub"><b>' + esc([e.degree, e.school].filter(Boolean).join(', ') || '(untitled)') + '</b><span class="ats-dt">' + esc(e.year) + '</span>' + (e.location ? '<div class="ats-muted">' + esc(e.location) + '</div>' : '') + (e.details ? '<div class="ats-muted">' + esc(e.details) + '</div>' : '') + '</div>'; });
+  h += '</div>';
+  const allSkills = r.skills.flatMap(g => g.items);
+  h += '<div class="ats-card"><h5>Skills' + fStat(allSkills.length > 0) + '</h5>';
+  if (!allSkills.length) h += '<p class="ats-empty">No skills section found in resume.</p>';
+  else h += r.skills.map(g => '<div class="ats-sub"><b>' + esc(g.group || 'Skills') + '</b><div class="ats-chips">' + g.items.map(i => '<span class="ats-chip">' + esc(i) + '</span>').join('') + '</div></div>').join('') + '<p class="ats-muted">' + allSkills.length + ' skill(s) listed exactly as entered, including any repeats — see Parsing Diagnostics for duplicate detection.</p>';
+  h += '</div>';
+  h += '<div class="ats-card"><h5>Certifications' + fStat(r.certifications.length > 0) + '</h5>' + (r.certifications.length ? '<ul>' + r.certifications.map(c => '<li>' + esc(c) + '</li>').join('') + '</ul>' : '<p class="ats-empty">No certifications found in resume.</p>') + '</div>';
+  h += '<div class="ats-card"><h5>Projects' + fStat(r.projects.length > 0) + '</h5>';
+  if (!r.projects.length) h += '<p class="ats-empty">No projects found in resume.</p>';
+  else r.projects.forEach(p => { h += '<div class="ats-sub"><b>' + esc(p.name || '(untitled project)') + '</b>' + (p.tech ? '<div class="ats-muted">Tech: ' + esc(p.tech) + '</div>' : '') + (p.bullets.length ? '<ul>' + p.bullets.map(b => '<li>' + esc(b) + '</li>').join('') + '</ul>' : '') + '</div>'; });
+  h += '</div>';
+  if (r.extra.length) h += '<div class="ats-card"><h5>Other Sections</h5>' + r.extra.map(x => '<div class="ats-sub"><b>' + esc(x.heading || 'Untitled section') + '</b><ul>' + x.items.map(i => '<li>' + esc(i) + '</li>').join('') + '</ul></div>').join('') + '</div>';
+  return h;
+}
+/* ---------- ATS workspace: Section C (Parsing Diagnostics) ----------
+   Reuses the SAME computeATSCompatibility() engine/tests that drive the ATS
+   Compatibility Score — nothing here is a second, parallel diagnostic
+   engine, and nothing is invented: every line is one of the 16 named test
+   groups already computed for the score, grouped and labeled as-is. */
+function atsDiagStatusBadge(t) {
+  if (t.status === 'PASS') return '<span class="ats-badge ok">Pass</span>';
+  if (t.status === 'WARNING') return '<span class="ats-badge warn">Warning</span>';
+  if (t.status === 'FAIL') return '<span class="ats-badge miss">Fail</span>';
+  return '<span class="ats-badge na">Not assessed</span>';
+}
+function atsDiagnosticsHtml(ats) {
+  const order = ['Document Readability', 'Identity & Contact', 'Experience Parsing', 'Education Parsing', 'Skills Parsing', 'Certification Parsing', 'Project Parsing', 'Section Detection', 'Date Normalization', 'Formatting Risk', 'Character/Encoding Safety', 'Content Integrity', 'Reading Order', 'Content Evidence', 'Experience Quality', 'Project Quality'];
+  let h = '<div class="ats-diagsum">' + ats.passCount + ' passed &middot; ' + ats.warnCount + ' warning(s) &middot; ' + ats.failCount + ' failed &middot; confidence: ' + ats.confidence.toLowerCase() + '</div>';
+  order.forEach(cat => {
+    const c = ats.categories[cat]; if (!c || !c.tests.length) return;
+    const issues = c.tests.filter(t => t.status === 'FAIL' || t.status === 'WARNING').length;
+    h += '<details class="ats-diaggrp"' + (issues ? ' open' : '') + '><summary>' + esc(cat) + (issues ? ' <span class="ats-issuect">' + issues + ' issue(s)</span>' : ' <span class="ats-okct">clear</span>') + '</summary>';
+    c.tests.forEach(t => {
+      h += '<div class="ats-test"><div class="ats-testhead">' + atsDiagStatusBadge(t) + '<b>' + esc(t.description) + '</b></div>' + (t.evidence ? '<p class="ats-muted">' + esc(t.evidence) + '</p>' : '') + (t.remediation ? '<p class="ats-fix">Fix: ' + esc(t.remediation) + '</p>' : '') + '</div>';
+    });
+    h += '</details>';
+  });
+  return h;
+}
 function renderPreviewBody(mode) {
   const body = $('#prevBody'); if (!body) return;
   const r = st.resume;
   if (isEmpty(r)) { body.innerHTML = '<p class="prev-empty">Add your resume first — there is nothing to preview yet.</p>'; return; }
   try {
     if (mode === 'ats') {
+      const ats = computeATSCompatibility(r, st.importMeta);
+      const im = st.importMeta;
+      const srcNote = im
+        ? ('This resume was originally imported from a ' + esc(String(im.source || 'file').toUpperCase()) + ' file. The text and fields below are regenerated from your structured resume data — the same data your editor and exports use — not the literal raw text pulled from that original file, since that intermediate text isn’t kept after import.')
+        : 'This resume was built directly in the editor/chat, not imported from a file, so there is no separate source document to re-extract. The text and fields below are generated from your structured resume data — the same data your editor and exports use.';
       const txt = atsExtractText(r);
-      const pre = document.createElement('pre'); pre.className = 'prev-ats';
-      pre.textContent = txt || '(Nothing could be extracted from this resume yet.)';
-      body.innerHTML = ''; body.appendChild(pre);
+      let h = '<div class="ats-ws">';
+      h += '<div class="ats-section"><div class="ats-sechead"><h4>Extracted Resume Text</h4><span class="ats-tag">Generated from resume data</span></div><p class="ats-notebox">' + srcNote + '</p><pre class="prev-ats" tabindex="0">' + esc(txt || '(Nothing to show — this resume is empty.)') + '</pre></div>';
+      h += '<div class="ats-section"><div class="ats-sechead"><h4>Parsed Information</h4></div>' + atsParsedFieldsHtml(r) + '</div>';
+      h += '<div class="ats-section"><div class="ats-sechead"><h4>Parsing Diagnostics</h4><span class="ats-tag">Same engine as your ATS score</span></div>' + atsDiagnosticsHtml(ats) + '</div>';
+      h += '</div>';
+      body.innerHTML = h;
     } else {
       const liveSrc = $('#paper');
       if (!liveSrc || !liveSrc.innerHTML) { body.innerHTML = '<p class="prev-empty">Add your resume first — there is nothing to preview yet.</p>'; return; }
