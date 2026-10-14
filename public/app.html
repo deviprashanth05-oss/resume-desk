@@ -360,6 +360,8 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 .up-plan .price small{font:500 13px var(--sans);color:var(--muted)}
 .up-plan ul{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--muted)}
 .up-plan ul li::before{content:"\2713 ";color:var(--ok);font-weight:700}
+.up-plan ul li.no{opacity:.6}
+.up-plan ul li.no::before{content:"\2717 ";color:var(--bad)}
 .up-plan button{width:100%;justify-content:center}
 @media (max-width:620px){.up-grid{grid-template-columns:1fr}}
 #upiDlg{width:min(440px,94vw);text-align:center}
@@ -1949,11 +1951,12 @@ async function loadPlans() {
   try { const r = await api('GET', '/api/billing/plans'); st.plans = r.plans; } catch (e) { st.plans = null; }
 }
 function planCardHtml(p) {
-  const extraFeatures = (p.features || []).filter(f => f !== 'Never expires' && !/^\d+ AI credits$/.test(f));
+  const excluded = p.excluded || [];
+  const items = (p.features || []).filter(f => f !== 'Never expires' && !/^\d+ AI credits$/.test(f));
   return `<div class="up-plan${p.recommended ? ' rec' : ''}">${p.recommended ? '<span class="tag">Best Value</span>' : ''}
     <h4>${esc(p.label)}</h4><div class="price">${esc(p.currency)}${p.price}<small> one-time</small></div>
     <p class="sub" style="margin:2px 0 8px">${p.credits} AI credits · never expires</p>
-    <ul>${extraFeatures.map(f => `<li>${esc(f)}</li>`).join('')}</ul>
+    <ul>${items.map(f => `<li${excluded.includes(f) ? ' class="no"' : ''}>${esc(f)}</li>`).join('')}</ul>
     <button class="btn${p.recommended ? '' : ' ghost'}" type="button" data-plan="${esc(p.plan)}">Get ${esc(p.label)}</button></div>`;
 }
 function currentPlanSummary() {
@@ -1974,10 +1977,11 @@ async function openUpgradeModal(reason) {
     ? currentPlanSummary()
     : "You've used all of your free AI credits. Upgrade ITC Resume to continue improving your resume.";
   if (!st.plans) await loadPlans();
+  const FEATURE_LIST = ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Resume version history', 'Job Description matching'];
   st.planList = st.plans || [
-    { plan: 'STARTER', label: 'Starter', price: 149, currency: '₹', credits: 10, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Resume version history'] },
-    { plan: 'PRO', label: 'Pro', price: 299, currency: '₹', credits: 25, recommended: true, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Job Description matching', 'Resume version history'] },
-    { plan: 'POWER', label: 'Power', price: 499, currency: '₹', credits: 50, features: ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Job Description matching', 'Resume version history'] }
+    { plan: 'STARTER', label: 'Starter', price: 149, currency: '₹', credits: 10, features: FEATURE_LIST, excluded: ['Job Description matching'] },
+    { plan: 'PRO', label: 'Pro', price: 299, currency: '₹', credits: 25, recommended: true, features: FEATURE_LIST, excluded: [] },
+    { plan: 'POWER', label: 'Power', price: 499, currency: '₹', credits: 50, features: FEATURE_LIST, excluded: [] }
   ];
   $('#upGrid').innerHTML = st.planList.map(planCardHtml).join('');
   const d = $('#upgradeDlg'); if (d.showModal) d.showModal(); else d.setAttribute('open', '');
