@@ -77,10 +77,11 @@ h1 em{font:italic 700 1em/1.1 var(--serif);font-style:italic;background:var(--gr
 .mock .bubble.me{margin-left:auto;background:var(--panel);border:1px solid var(--line);border-left:1px solid var(--line);border-radius:14px 14px 4px 14px}
 .mock .score{display:flex;justify-content:space-between;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
 .mock .score b{font:700 26px/1 var(--wordmark);color:var(--ok)}
-.hero-slides{position:relative;margin-top:6px;min-height:118px}
-.hslide{position:absolute;inset:0;opacity:0;transform:translateX(16px);transition:opacity .45s ease,transform .45s ease;pointer-events:none;display:flex;align-items:center}
+.hero-slides{position:relative;min-height:340px}
+.hslide{position:absolute;inset:0;opacity:0;transform:translateX(16px);transition:opacity .45s ease,transform .45s ease;pointer-events:none}
 .hslide.active{opacity:1;transform:translateX(0);pointer-events:auto}
 .hslide .resume-mini,.hslide .score{width:100%}
+@media (max-width:860px){.hero-slides{min-height:300px}}
 .hs-dots{display:flex;gap:6px;justify-content:center;margin-top:10px}
 .hs-dots i{width:6px;height:6px;border-radius:50%;background:var(--line);display:inline-block;transition:background .3s,width .3s}
 .hs-dots i.on{background:var(--accent);width:16px;border-radius:3px}
@@ -199,12 +200,12 @@ footer a:hover{color:var(--ink)}
     <div class="mock-stage">
       <div class="mock" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i></div>
-        <div class="bubble">Upload your resume or tell me what you'd like to improve. I'll optimize it for ATS and highlight every change.</div>
-        <div class="bubble me">Rewrite my summary and change the color to navy</div>
-        <div class="bubble">Done — I tightened your summary and switched the accent to navy.</div>
         <div class="hero-slides" id="heroSlides">
           <div class="hslide active" data-slide="0">
-            <div class="resume-mini clean" style="padding:12px 14px">
+            <div class="bubble">Upload your resume or tell me what you'd like to improve. I'll optimize it for ATS and highlight every change.</div>
+            <div class="bubble me">Rewrite my summary and change the color to navy</div>
+            <div class="bubble">Done — I tightened your summary and switched the accent to navy.</div>
+            <div class="resume-mini clean" style="padding:12px 14px;margin-top:6px">
               <div class="rname">Priya Sharma</div>
               <div class="rrole">Data Analyst · Chennai, India</div>
               <div style="margin:4px 0 6px"><span class="rtag">SQL</span><span class="rtag">Power BI</span><span class="rtag">Python</span></div>
@@ -213,7 +214,10 @@ footer a:hover{color:var(--ink)}
             </div>
           </div>
           <div class="hslide" data-slide="1">
-            <div class="score" style="height:100%;margin:0">
+            <div class="bubble">Want to see how this matches real ATS systems? I can scan it against the same rules recruiting software uses.</div>
+            <div class="bubble me">Yes, check my ATS compatibility score</div>
+            <div class="bubble">Done — here's your ATS Compatibility breakdown.</div>
+            <div class="score" style="margin-top:6px">
               <span>ATS Compatibility</span><b>88<small style="font-size:13px"> / 100</small></b>
             </div>
           </div>
