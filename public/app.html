@@ -655,7 +655,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
               <div class="dz-txt"><b>Drop a file, or</b><span>PDF, Word, or a photo of your resume</span></div>
               <button class="btn" id="emUpload" type="button">Choose file</button>
             </div>
-            <p class="alt"><button class="lnk" id="emPaste" type="button">Paste text instead</button><span aria-hidden="true">·</span><button class="lnk" id="emTell" type="button">Start from scratch</button><span aria-hidden="true">·</span><button class="lnk" id="emSample" type="button">See a sample</button></p>
+            <p class="alt"><button class="lnk" id="emPaste" type="button">Paste text instead</button><span aria-hidden="true">·</span><button class="lnk" id="emTell" type="button">Start from scratch</button></p>
           </div>
         </section>
         <article class="paper classic" id="paper" hidden></article>
@@ -1981,11 +1981,72 @@ ${SCHEMA}
 
 OUTPUT: only one JSON object with keys in this order: {"reply": string, "changes": [short English descriptions of what changed, max 4], "resume": full resume object or null}`;
 
+/* ---------- guided "Start from scratch" builder ----------
+   A dedicated system prompt + a small amount of client-side state (st.builder,
+   st.builderStep), layered on top of the exact same send()/applyResume()/save()
+   pipeline ordinary chat-editing already uses — no separate resume record, no
+   separate AI endpoint, no separate persistence mechanism. The guided behavior
+   (one question at a time, adaptive ordering, no fabrication, skip support) lives
+   entirely in this prompt; the app just asks for it and reuses what already works. */
+const BUILD_RULES = `You are running a GUIDED, step-by-step resume-building conversation for someone starting from scratch with no resume yet. The user talks to you in English, or in Tanglish (Tamil written using plain English letters, no Tamil or Devanagari script).
+
+GOAL: ask ONE simple question at a time, in plain friendly language, and progressively fill in the resume as the user answers. Do not dump a list of questions in one message.
+
+TOPICS, roughly in this order, but adapt — do not follow this as a rigid fixed script:
+1. Personal details: full name, email, phone, city/state (optional), LinkedIn (optional, never require it), portfolio/GitHub (optional).
+2. Target role and career stage: what role they're applying for, whether they're a fresher/student/experienced professional/career changer, whether they want a professional summary.
+3. Education: degree, course/specialization, institution, start/end year, GPA/marks (ask only if it seems relevant — never assume everyone wants to include it).
+4. Skills: technical, tools/software, and relevant soft skills. If they're unsure what to list, suggest a few examples relevant to their target role and ask which they genuinely have.
+5. Certifications (optional): name, issuer, year. Skip entirely if they say they have none.
+6. Projects (optional): name, short description, technologies, their actual contribution, results only if they state one.
+7. Work experience / internships: title, company, start/end dates or current, responsibilities, achievements (only with real evidence). If they're a fresher with no work experience, suggest academic projects, internships, volunteering, or extracurricular leadership instead, and move on.
+8. Additional sections (optional, keep brief): achievements/awards, extracurriculars, leadership/volunteering, languages, publications.
+
+ADAPTIVE BEHAVIOR (important):
+- Use their answers to decide the next relevant question — e.g. a fresher should move quickly into education/skills/projects rather than being asked about work history in detail; someone with experience should be asked about their latest role first.
+- If a field is already filled in CURRENT_RESUME_JSON or was already given earlier in this conversation, do NOT ask for it again.
+- If one message contains several pieces of information, extract and save everything it supports, then move on to the next genuinely missing question.
+- If an answer is ambiguous, ask one short clarifying question instead of guessing.
+- Let the user skip anything by saying so ("skip", "none", "n/a", "I don't have any", etc.) — accept it immediately and move to the next relevant topic, do not push back.
+- Let the user correct or change an earlier answer at any point — update that field in place, do not restart the conversation.
+
+RULES (never break these)
+1. NEVER invent facts: no employer, job title, dates, degree, certification, tool, skill, metric or achievement the user did not actually tell you. If a bullet would be stronger with a number or detail they haven't given, ask for it in "reply" — never guess or fabricate one.
+2. Only add a skill the user has explicitly confirmed they have — never add one just because it fits the target role.
+3. Keep "reply" short and warm — at most 2-3 sentences, ending in the next question (or, once a first draft is ready, a short completion note).
+4. Never ask for sensitive information such as government ID numbers, passwords, or bank details.
+5. Validate email/URL formats loosely where given, but never block on an optional field — accept a skip.
+6. LANGUAGE OF "reply": Default to English. If the user's latest message is clearly in Tamil or a Tamil/English mix, reply in Tanglish — Tamil words spelled out using plain English (Latin) letters only. NEVER use Tamil script or Devanagari/Hindi script. If there is no clear signal of Tamil/Tanglish, use English.
+7. Write the resume content itself in professional English.
+8. "resume" must always be the COMPLETE resume so far (not just the newest fields) using exactly the schema below, carrying forward everything already collected — never drop previously-saved information.
+9. Once you have enough for a genuinely useful first draft (at minimum: name, one contact method, and at least one of education/experience/projects, plus some skills), say so warmly in "reply" (e.g. mention the first draft is ready and ask if they'd like to keep adding detail), and set "complete" to true. You may keep gathering more information in later turns after that — it does not end the conversation.
+10. Until a useful first draft is possible, set "complete" to false.
+11. Always set "step" to whichever of these best matches the CURRENT question you are asking (or just finished covering): "personal", "objective", "education", "skills", "certifications", "projects", "experience", "additional". Once a usable first draft exists (whether or not you keep asking more), you may use "done" instead.
+
+SCHEMA
+${SCHEMA}
+
+OUTPUT: only one JSON object with keys in this order: {"reply": string, "changes": [short English descriptions of what changed, max 4], "resume": the complete resume object using the schema above (always include it, even if little has changed yet), "complete": boolean, "step": one of "personal"|"objective"|"education"|"skills"|"certifications"|"projects"|"experience"|"additional"|"done"}`;
+const BUILDER_STEP_ORDER = ['personal', 'objective', 'education', 'skills', 'certifications', 'projects', 'experience', 'additional'];
+const BUILDER_STEP_LABELS = { personal: 'Personal details', objective: 'Career objective', education: 'Education', skills: 'Skills', certifications: 'Certifications', projects: 'Projects', experience: 'Work experience', additional: 'Additional details', done: 'Draft ready' };
+function builderBannerText() {
+  const step = st.builderStep || 'personal';
+  if (step === 'done') return "Your first draft is ready — keep chatting to add more, or open the Resume tab to see it.";
+  const idx = BUILDER_STEP_ORDER.indexOf(step);
+  return 'Building your resume — Step ' + (idx >= 0 ? idx + 1 : 1) + ' of ' + BUILDER_STEP_ORDER.length + ': ' + (BUILDER_STEP_LABELS[step] || 'Getting started');
+}
+function startBuilder() {
+  if (st.busy) return;
+  st.builder = true; st.builderStep = 'personal';
+  st.chat = [{ role: 'assistant', text: "Hi! I'll help you create a professional resume from scratch. I'll ask a few simple questions and build your resume as we go — you can skip anything that doesn't apply.\n\nLet's start with the basics: what's your full name?", local: true }];
+  setView('chat'); renderAll(); save(); $('#inp').focus();
+}
+
 const SAMPLE = { name: 'Priya Sharma', headline: 'Data Analyst', contact: { email: 'priya.sharma@example.com', phone: '+91 98765 43210', location: 'Chennai, India', linkedin: 'linkedin.com/in/priya-sharma' }, summary: 'Data analyst with 2 years of experience turning sales data into clear dashboards and reports using SQL and Power BI. Comfortable presenting insights to non-technical managers.', skills: [{ group: 'Languages', items: ['SQL', 'Python'] }, { group: 'Tools', items: ['Power BI', 'Excel', 'Git', 'Jira'] }], experience: [{ title: 'Data Analyst', company: 'Brightline Retail', location: 'Chennai', start: 'Jul 2023', end: 'Present', bullets: ['Built 10 Power BI dashboards used by 35 store managers, cutting weekly reporting time by 30%.', 'Wrote SQL queries on 2M+ rows to find slow-moving stock, helping reduce dead inventory by 12%.', 'Automated the Monday sales report with Python, saving the team 5 hours every week.'] }], projects: [{ name: 'Customer churn prediction', link: '', tech: 'Python, scikit-learn', bullets: ['Predicted churn with 86% accuracy on 50,000 customer records.'] }], education: [{ degree: 'B.Sc. Statistics', school: 'Loyola College', location: 'Chennai', year: '2023', details: '' }], certifications: ['Microsoft PL-300: Power BI Data Analyst'], achievements: [], extra: [{ heading: 'Languages', items: ['Tamil', 'English', 'Hindi'] }] };
 const ACCENTS = [{ n: 'Ink', v: '#111111' }, { n: 'Navy', v: '#1F3A5F' }, { n: 'Teal', v: '#0F6B63' }, { n: 'Maroon', v: '#7A1F3D' }, { n: 'Indigo', v: '#3B3F99' }];
 const PH = ['Python skill add pannu…', 'Summary-a innum better-a maathu…', 'Enga project-a resume-la add pannunga…', 'Make my bullets sound stronger…', 'Company name maathi, dates fix pannu…'];
 
-const st = { resume: norm({}), prev: [], chat: [], jd: '', tpl: 'classic', accent: null, ats: null, improve: null, atsImprove: null, importMeta: null, view: 'chat', busy: false, ctl: null, hlBase: null, fresh: false, liveText: '', liveStreaming: false, liveStart: 0, timer: null, availChecked: false, sidebarQuery: '' };
+const st = { resume: norm({}), prev: [], chat: [], jd: '', tpl: 'classic', accent: null, ats: null, improve: null, atsImprove: null, importMeta: null, view: 'chat', busy: false, ctl: null, hlBase: null, fresh: false, liveText: '', liveStreaming: false, liveStart: 0, timer: null, availChecked: false, sidebarQuery: '', builder: false, builderStep: 'personal' };
 const accentNow = () => st.accent || (st.tpl === 'clean' ? '#1F3A5F' : '#111111');
 
 /* ---------- talking to this server ---------- */
@@ -2044,7 +2105,7 @@ let dirty = false, saveT = null;
 const greetingMsg = () => ({ role: 'assistant', text: GREETING, local: true });
 function setSaveState(t) { const e = $('#saveState'); if (e) e.textContent = t; }
 function autoTitle() { if (st.titleAuto && st.resume.name) st.title = st.resume.name + (st.resume.headline ? ' \u2013 ' + st.resume.headline : ''); return st.title.slice(0, 80); }
-function payload() { return { title: autoTitle(), data: { resume: st.resume, prev: st.prev.slice(-6), versions: st.versions.slice(-25), chat: st.chat.slice(-40), jd: st.jd, tpl: st.tpl, accent: st.accent, ats: st.ats, importMeta: st.importMeta, titleAuto: st.titleAuto } }; }
+function payload() { return { title: autoTitle(), data: { resume: st.resume, prev: st.prev.slice(-6), versions: st.versions.slice(-25), chat: st.chat.slice(-40), jd: st.jd, tpl: st.tpl, accent: st.accent, ats: st.ats, importMeta: st.importMeta, titleAuto: st.titleAuto, builder: st.builder, builderStep: st.builderStep } }; }
 function save() { if (!st.rid) return; dirty = true; setSaveState('Saving\u2026'); clearTimeout(saveT); saveT = setTimeout(() => flush(), 900); }
 async function flush(keepalive) {
   if (!dirty || !st.rid) return; clearTimeout(saveT); dirty = false;
@@ -2062,6 +2123,7 @@ function applyLoaded(rec) {
   st.rid = rec.id; st.title = rec.title || 'Untitled resume'; st.titleAuto = d.titleAuto !== false;
   st.resume = norm(d.resume); st.prev = (d.prev || []).map(norm); st.versions = Array.isArray(d.versions) ? d.versions : []; st.chat = Array.isArray(d.chat) && d.chat.length ? d.chat : [greetingMsg()];
   st.jd = d.jd || ''; st.tpl = d.tpl === 'clean' ? 'clean' : 'classic'; st.accent = ACCENTS.some(a => a.v === d.accent) ? d.accent : null; st.ats = d.ats || null; st.importMeta = d.importMeta || null;
+  st.builder = !!d.builder; st.builderStep = d.builderStep || 'personal';
   st.hlBase = null; st.fresh = false; st.improve = null; st.atsImprove = null; $('#jd').value = st.jd; setSaveState('');
 }
 async function openResume(id) {
@@ -2272,7 +2334,7 @@ async function acctAction(a) {
 async function resumeAction(a) {
   if (a === 'new') { try { await createResume(); } catch (e) { if (e.code === 'trial_one_resume') openUpgradeModal('locked'); else if (e.code === 'FREE_TRIAL_EXHAUSTED') openUpgradeModal('trial'); else toast(e.message || 'Could not create a resume.'); } }
   else if (a === 'rename') { const v = await askForm({ title: 'Rename resume', ok: 'Rename', fields: [{ label: 'Name', value: st.title, max: 80 }] }); if (v && v[0].trim()) { st.title = v[0].trim(); st.titleAuto = false; save(); renderResumeMenu(); } }
-  else if (a === 'dup') { try { await flush(); await createResume(st.title + ' (copy)', { ...payload().data, titleAuto: false, chat: [greetingMsg()] }); } catch (e) { if (e.code === 'trial_one_resume') openUpgradeModal('locked'); else if (e.code === 'FREE_TRIAL_EXHAUSTED') openUpgradeModal('trial'); else toast(e.message || 'Could not duplicate.'); } }
+  else if (a === 'dup') { try { await flush(); await createResume(st.title + ' (copy)', { ...payload().data, titleAuto: false, chat: [greetingMsg()], builder: false, builderStep: 'personal' }); } catch (e) { if (e.code === 'trial_one_resume') openUpgradeModal('locked'); else if (e.code === 'FREE_TRIAL_EXHAUSTED') openUpgradeModal('trial'); else toast(e.message || 'Could not duplicate.'); } }
   else if (a === 'del') {
     const id = st.rid, ok = await askForm({ title: 'Delete this resume?', desc: '"' + st.title + '" will be permanently deleted.', ok: 'Delete', danger: true });
     if (!ok) return;
@@ -2498,8 +2560,16 @@ async function send(text) {
   const history = st.chat.filter(m => (m.role === 'user' || m.role === 'assistant') && !m.error && !m.local).slice(-8).map(m => ({ role: m.role, content: m.text }));
   st.chat.push({ role: 'user', text });
   $('#inp').value = ''; autosize(); setView('chat');
-  const finalTurn = 'CURRENT_RESUME_JSON:\n' + JSON.stringify(st.resume) + '\n\nTARGET_JOB_DESCRIPTION (may be empty):\n' + st.jd.slice(0, 6000) + '\n\nUSER_MESSAGE:\n' + text;
-  const turns = [{ role: 'user', content: RULES }].concat(history, [{ role: 'user', content: finalTurn }]);
+  // In builder mode, a short answer like "Chennai" or "9876543210" must never be classified
+  // as idle GENERAL_CHAT server-side (lib/billing.js classifyIntent) — that path returns a
+  // canned "upgrade" reply on Free Trial WITHOUT calling the AI or touching the resume at
+  // all, which would silently break guided building for exactly the free-trial users this
+  // entry point is for. Framing it as an explicit edit instruction guarantees it is classified
+  // as an ordinary CONTENT_EDIT (1 credit, available on Free Trial) like any other resume
+  // edit message — same existing billing rule, just reliably routed to it regardless of length.
+  const userMsgForModel = st.builder ? ('Update my resume with this answer: ' + text) : text;
+  const finalTurn = 'CURRENT_RESUME_JSON:\n' + JSON.stringify(st.resume) + '\n\nTARGET_JOB_DESCRIPTION (may be empty):\n' + st.jd.slice(0, 6000) + '\n\nUSER_MESSAGE:\n' + userMsgForModel;
+  const turns = [{ role: 'user', content: st.builder ? BUILD_RULES : RULES }].concat(history, [{ role: 'user', content: finalTurn }]);
   await withBusy('Working on it', async signal => {
     const out = await ai.json(turns, { kind: 'chat', cache: false, signal, onText: ({ text: raw }) => { const r = peekReply(raw); if (r) setLive(r); } });
     const reply = S(out && out.reply) ? String(out.reply).trim() : 'Done.';
@@ -2507,6 +2577,10 @@ async function send(text) {
     if (out && out.resume && typeof out.resume === 'object') {
       const nr = norm(out.resume);
       if (!isEmpty(nr)) { applyResume(nr, true); changes = A(out.changes).map(S).filter(Boolean).slice(0, 4); if (!changes.length) changes = ['Resume updated']; snapshotVersion(changes[0]); }
+    }
+    if (st.builder && out) {
+      if (BUILDER_STEP_ORDER.includes(out.step) || out.step === 'done') st.builderStep = out.step;
+      if (out.complete === true) st.builder = false; // first draft is ready — later messages are ordinary edits again
     }
     st.chat.push({ role: 'assistant', text: reply, changes });
     if (changes.length && st.view !== 'resume') toast('Resume updated. Open the Resume tab to see it.');
@@ -2591,6 +2665,7 @@ async function importResume(kind, payload, label, fileMeta) {
     const nr = norm(out && out.resume ? out.resume : out);
     if (isEmpty(nr)) throw { userMsg: 'I could not find resume content in that. Try pasting the text instead.' };
     st.prev = []; st.versions = []; st.hlBase = null; st.fresh = false; st.resume = nr; st.ats = null; st.improve = null; st.atsImprove = null;
+    st.builder = false; // uploading/pasting an actual resume supersedes the guided "start from scratch" flow, if it was active
     st.importMeta = fileMeta || null; // real, measured file-level facts (page count, reading order, etc.) — null when the resume was typed/pasted, not uploaded as a file
     snapshotVersion('Original Resume');
     const gaps = computeATSCompatibility(nr, st.importMeta).allTests.filter(t => t.status === 'FAIL').slice(0, 3).map(t => t.description.toLowerCase());
@@ -3132,7 +3207,11 @@ function renderToolbar() {
 }
 function meterHtml(score) { const on = Math.round(score / 10); return Array.from({ length: 10 }, (_, i) => `<i class="${i < on ? 'on' : ''}"></i>`).join(''); }
 function renderAll() { renderChat(); renderChips(); renderPaper(); renderToolbar(); renderAts(); updateAvail(); }
-function updateAvail() { $('#banner').hidden = true; $('#send').disabled = false; }
+function updateAvail() {
+  const b = $('#banner');
+  if (st.builder) { b.hidden = false; b.textContent = builderBannerText(); } else b.hidden = true;
+  $('#send').disabled = false;
+}
 
 /* ---------- downloads ---------- */
 async function saveFile(filename, data) {
@@ -3165,8 +3244,7 @@ function wire() {
   $('#attach').addEventListener('click', () => $('#file').click()); $('#emUpload').addEventListener('click', () => { setView('chat'); $('#file').click(); });
   $('#file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; handleFile(f); });
   $('#pasteBtn').addEventListener('click', openPaste); $('#emPaste').addEventListener('click', openPaste);
-  $('#emTell').addEventListener('click', () => { setView('chat'); $('#inp').focus(); });
-  $('#emSample').addEventListener('click', loadSample);
+  $('#emTell').addEventListener('click', startBuilder);
   $('#pasteCancel').addEventListener('click', closePaste);
   $('#pasteGo').addEventListener('click', () => { const t = $('#pasteTxt').value.trim(); if (t.length < 40) { toast('Paste a bit more text.'); return; } closePaste(); $('#pasteTxt').value = ''; importResume('text', t, 'Reading the text you pasted'); });
   const left = $('.left');
