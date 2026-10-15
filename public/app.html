@@ -35,12 +35,47 @@ svg.ic{flex:none}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 [hidden]{display:none!important}
 
-.app{height:100%;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto}
+.app{height:100%;display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;min-width:0;flex:1}
 .shell{display:grid;grid-template-columns:minmax(0,1fr);min-height:0}
 .left,.desk{grid-row:1;grid-column:1;min-height:0}
 .app:not([data-view="resume"]) .desk{display:none}
 .app[data-view="resume"] .left{display:none}
 .bottomnav{display:none}
+
+/* app shell: the new collapsible left sidebar (conversation/resume history + nav) sits
+   outside .app as a flex sibling, so .app's own internal grid/rows stay untouched. */
+.appshell{display:flex;height:100%;min-height:0}
+.gsidebar{flex:0 0 272px;width:272px;min-height:0;display:flex;flex-direction:column;background:var(--panel);border-right:1px solid var(--line);overflow:hidden;transition:flex-basis .18s ease,width .18s ease,opacity .18s ease}
+.appshell.sidebar-collapsed .gsidebar{flex-basis:0;width:0;border-right:0;opacity:0}
+.gs-top{display:flex;align-items:center;height:54px;padding:0 16px;flex:none}
+.gs-brand{font:700 19px/1 var(--wordmark);letter-spacing:-.01em;white-space:nowrap}
+.gs-brand .wm-accent{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.gs-newchat{flex:none;display:flex;align-items:center;gap:8px;margin:2px 12px 10px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);font-weight:600;font-size:13.5px}
+.gs-newchat:hover{background:var(--tint)}
+.gs-search{flex:none;padding:0 12px 10px}
+.gs-search input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);font-size:13px}
+.gs-nav{flex:none;display:flex;flex-direction:column;gap:2px;padding:0 8px 10px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.gs-nav button{display:flex;align-items:center;gap:10px;padding:8px 10px;border:0;border-radius:8px;background:none;color:var(--muted);font-weight:500;font-size:13.5px;text-align:left}
+.gs-nav button:hover{background:var(--tint);color:var(--ink)}
+.gs-nav button[aria-current="page"]{background:var(--tint);color:var(--accent)}
+.gs-histlbl{flex:none;padding:0 16px 4px;color:var(--muted);font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.gs-list{flex:1;min-height:0;overflow:auto;padding:0 8px 8px;display:flex;flex-direction:column;gap:1px}
+.gs-item{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:8px 10px;border:0;border-radius:8px;background:none;text-align:left;width:100%}
+.gs-item:hover{background:var(--tint)}
+.gs-item[aria-current="true"]{background:var(--tint)}
+.gs-item-title{font-weight:600;font-size:13.5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gs-item-time{color:var(--muted);font-size:11.5px}
+.gs-empty{padding:8px 10px;color:var(--muted);font-size:12.5px}
+.gs-foot{flex:none;border-top:1px solid var(--line);padding:8px}
+.gs-acct{display:flex;align-items:center;gap:10px;width:100%;padding:8px;border:0;border-radius:9px;background:none;text-align:left}
+.gs-acct:hover{background:var(--tint)}
+.gs-avatar{flex:none;width:28px;height:28px;border-radius:50%;background:var(--grad);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.gs-acctinfo{min-width:0;display:flex;flex-direction:column}
+.gs-acctinfo b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gs-acctinfo small{color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebartoggle{flex:none;background:none;border:0;border-radius:8px;padding:6px;color:var(--muted);display:flex}
+.sidebartoggle:hover{background:var(--tint);color:var(--ink)}
+@media (max-width:819px){.gsidebar{display:none}.sidebartoggle{display:none}}
 
 /* top bar */
 .top{display:flex;align-items:center;gap:12px;height:54px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--line)}
@@ -63,7 +98,9 @@ svg.ic{flex:none}
 .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 .pane{flex:1;min-height:0;display:flex;flex-direction:column}
 .app[data-view="ats"] #paneChat{display:none}
+.app[data-view="job"] #paneChat{display:none}
 .app:not([data-view="ats"]) #paneAts{display:none}
+.app:not([data-view="job"]) #paneJob{display:none}
 
 /* chat */
 .banner{margin:12px 14px 0;padding:9px 12px;border-radius:10px;background:var(--tint);font-size:13.5px}
@@ -194,6 +231,7 @@ button.pill:hover{border-color:var(--accent);color:var(--ink)}
 
 /* ats pane */
 #paneAts{overflow:auto;padding:14px;gap:14px}
+#paneJob{overflow:auto;padding:14px;gap:14px}
 .card{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:16px}
 .card h3{margin:0 0 4px;font:400 24px/1.1 var(--serif)}
 .sub{margin:0 0 12px;color:var(--muted);font-size:13px}
@@ -299,7 +337,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
 @media (max-width:819px){
   .app{grid-template-rows:auto auto minmax(0,1fr) auto}
   .tabs{display:none}
-  .bottomnav{display:grid;grid-template-columns:repeat(3,1fr);background:var(--panel);border-top:1px solid var(--line)}
+  .bottomnav{display:grid;grid-template-columns:repeat(4,1fr);background:var(--panel);border-top:1px solid var(--line)}
   .bottomnav button{background:none;border:0;padding:8px 4px 9px;color:var(--muted);font-size:12.5px;font-weight:500;display:flex;flex-direction:column;align-items:center;gap:2px}
   .bottomnav button[aria-current="page"]{color:var(--accent)}
   .toolbar{padding:8px 12px}
@@ -432,8 +470,38 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 </style>
 </head>
 <body>
+<div class="appshell" id="appshell">
+  <aside class="gsidebar" id="gsidebar">
+    <div class="gs-top">
+      <span class="gs-brand"><span class="wm-accent">ITC</span> Resume</span>
+    </div>
+    <button class="gs-newchat" id="gsNewChat" type="button">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      <span>New Chat</span>
+    </button>
+    <div class="gs-search">
+      <input type="search" id="gsSearch" placeholder="Search your resumes…" aria-label="Search your resumes">
+    </div>
+    <nav class="gs-nav" aria-label="Views">
+      <button type="button" id="gsNavChat" data-v="chat" data-ic="chat"><span>Chat</span></button>
+      <button type="button" id="gsNavResume" data-v="resume" data-ic="file"><span>Resume</span></button>
+      <button type="button" id="gsNavAts" data-v="ats" data-ic="target"><span>ATS Compatibility</span></button>
+      <button type="button" id="gsNavJob" data-v="job" data-ic="search"><span>Job Description Match</span></button>
+    </nav>
+    <div class="gs-histlbl">Your resumes</div>
+    <div class="gs-list" id="gsList" aria-label="Your resumes"></div>
+    <div class="gs-foot">
+      <button class="gs-acct" id="gsAcctBtn" type="button" aria-label="Account">
+        <span class="gs-avatar" id="gsAvatar">?</span>
+        <span class="gs-acctinfo"><b id="gsAcctName">…</b><small id="gsQuota">…</small></span>
+      </button>
+    </div>
+  </aside>
 <div class="app" id="app" data-view="chat">
   <header class="top">
+    <button class="sidebartoggle" id="sidebarToggle" type="button" title="Toggle sidebar" aria-label="Toggle sidebar" aria-expanded="true">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+    </button>
     <a class="logo" href="/" aria-label="{{APP_NAME}}" id="logo">
       <img src="/logo.png" width="30" height="30" alt="" style="object-fit:contain">
       <span class="lname"><span class="wm-accent">ITC</span> Resume</span>
@@ -470,7 +538,8 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
   <div class="tabs" role="tablist">
     <button role="tab" id="tabChat" class="tab-left" aria-selected="true" type="button">Chat</button>
     <button role="tab" id="tabResume" class="tab-center" aria-selected="false" type="button">Resume</button>
-    <button role="tab" id="tabAts" class="tab-right" aria-selected="false" type="button">ATS and job match</button>
+    <button role="tab" id="tabAts" class="tab-center" aria-selected="false" type="button">ATS Compatibility</button>
+    <button role="tab" id="tabJob" class="tab-right" aria-selected="false" type="button">Job Description Match</button>
   </div>
 
   <div class="shell">
@@ -504,12 +573,6 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
               <div class="score"><span class="n" id="rdScore">—</span><span class="of">/ 100</span></div>
               <div class="meter" id="rdMeter" aria-hidden="true"></div>
             </div>
-            <div class="scorecol" id="jmCol" hidden>
-              <h3>Job Match</h3>
-              <p class="sub">How closely your documented background fits this specific job.</p>
-              <div class="score"><span class="n" id="jmScore">—</span><span class="of">/ 100</span></div>
-              <div class="meter" id="jmMeter" aria-hidden="true"></div>
-            </div>
           </div>
           <div class="acc" id="atsBreakdown"></div>
           <div class="subsec"><h4>Why this score?</h4><div id="atsWhy"></div></div>
@@ -523,12 +586,23 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
             <button class="btn sm" type="button" id="atsUnlockBtn">Upgrade</button>
           </div>
         </div>
+      </section>
+
+      <section class="pane" id="paneJob">
         <div class="card locked-ov" id="jdCard">
           <div class="lk-body" id="jdBody">
             <h3>Job Description Match</h3>
-            <p class="sub">A separate analysis of how closely your resume matches one specific job. Paste the job description below — nothing here comes from a black-box AI score.</p>
+            <p class="sub">A separate analysis of how closely your resume matches one specific job. This is independent of your ATS Compatibility Score — nothing here comes from a black-box AI score.</p>
+            <div class="scorehd" id="jmScoreHd" hidden>
+              <div class="scorecol">
+                <h3>Job Match</h3>
+                <p class="sub">How closely your documented background fits this specific job.</p>
+                <div class="score"><span class="n" id="jmScore">—</span><span class="of">/ 100</span></div>
+                <div class="meter" id="jmMeter" aria-hidden="true"></div>
+              </div>
+            </div>
             <textarea class="jd" id="jd" placeholder="Paste the full job description here…" aria-label="Job description"></textarea>
-            <div class="mrow"><button class="btn" id="matchBtn" type="button">Analyze</button></div>
+            <div class="mrow"><button class="btn" id="matchBtn" type="button">Analyze Job Match</button></div>
             <div class="mres" id="matchOut"></div>
           </div>
           <div class="lk-teaser" id="jdTeaser" hidden>
@@ -587,8 +661,10 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
   <nav class="bottomnav" aria-label="Sections">
     <button type="button" data-v="chat" aria-current="page" data-ic="chat"><span>Chat</span></button>
     <button type="button" data-v="resume" data-ic="file"><span>Resume</span></button>
-    <button type="button" data-v="ats" data-ic="target"><span>Job match</span></button>
+    <button type="button" data-v="ats" data-ic="target"><span>ATS</span></button>
+    <button type="button" data-v="job" data-ic="search"><span>Job match</span></button>
   </nav>
+</div>
 </div>
 
 <dialog id="pasteDlg">
@@ -1854,7 +1930,7 @@ function loadScript(url) {
     document.head.appendChild(s);
   }));
 }
-const P = { clip: '<path d="M21.4 11.6l-8.5 8.5a5.5 5.5 0 01-7.8-7.8l8.5-8.5a3.7 3.7 0 015.2 5.2l-8.5 8.5a1.8 1.8 0 01-2.6-2.6l7.8-7.8"/>', clipboard: '<path d="M9 4h6v3H9z"/><path d="M9 5.5H7a2 2 0 00-2 2V20a2 2 0 002 2h10a2 2 0 002-2V7.5a2 2 0 00-2-2h-2"/>', send: '<path d="M5 12h14M13 6l6 6-6 6"/>', stop: '<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>', download: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>', undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/>', chat: '<path d="M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z"/>', file: '<path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/>', target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8" fill="currentColor"/>', mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0012 0"/><path d="M12 17v4M9 21h6"/>' };
+const P = { clip: '<path d="M21.4 11.6l-8.5 8.5a5.5 5.5 0 01-7.8-7.8l8.5-8.5a3.7 3.7 0 015.2 5.2l-8.5 8.5a1.8 1.8 0 01-2.6-2.6l7.8-7.8"/>', clipboard: '<path d="M9 4h6v3H9z"/><path d="M9 5.5H7a2 2 0 00-2 2V20a2 2 0 002 2h10a2 2 0 002-2V7.5a2 2 0 00-2-2h-2"/>', send: '<path d="M5 12h14M13 6l6 6-6 6"/>', stop: '<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>', download: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>', undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/>', chat: '<path d="M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z"/>', file: '<path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/>', target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8" fill="currentColor"/>', search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>', mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0012 0"/><path d="M12 17v4M9 21h6"/>' };
 const ic = n => `<svg class="ic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]}</svg>`;
 
 const GREETING = "Hi! I'm your AI Resume Builder. Upload your resume or tell me what you'd like to improve. I'll optimize it for ATS and highlight every change.";
@@ -1879,7 +1955,7 @@ const SAMPLE = { name: 'Priya Sharma', headline: 'Data Analyst', contact: { emai
 const ACCENTS = [{ n: 'Ink', v: '#111111' }, { n: 'Navy', v: '#1F3A5F' }, { n: 'Teal', v: '#0F6B63' }, { n: 'Maroon', v: '#7A1F3D' }, { n: 'Indigo', v: '#3B3F99' }];
 const PH = ['Python skill add pannu…', 'Summary-a innum better-a maathu…', 'Enga project-a resume-la add pannunga…', 'Make my bullets sound stronger…', 'Company name maathi, dates fix pannu…'];
 
-const st = { resume: norm({}), prev: [], chat: [], jd: '', tpl: 'classic', accent: null, ats: null, improve: null, importMeta: null, view: 'chat', busy: false, ctl: null, hlBase: null, fresh: false, liveText: '', liveStreaming: false, liveStart: 0, timer: null, availChecked: false };
+const st = { resume: norm({}), prev: [], chat: [], jd: '', tpl: 'classic', accent: null, ats: null, improve: null, importMeta: null, view: 'chat', busy: false, ctl: null, hlBase: null, fresh: false, liveText: '', liveStreaming: false, liveStart: 0, timer: null, availChecked: false, sidebarQuery: '' };
 const accentNow = () => st.accent || (st.tpl === 'clean' ? '#1F3A5F' : '#111111');
 
 /* ---------- talking to this server ---------- */
@@ -1970,6 +2046,19 @@ function ago(ts) { const m = Math.round((Date.now() - ts) / 60000); if (m < 1) r
 function renderResumeMenu() {
   $('#rsTitle').textContent = st.rid ? autoTitle() : 'Loading\u2026';
   $('#rsList').innerHTML = st.resumes.map(r => `<button type="button" role="menuitem" data-id="${esc(r.id)}" aria-current="${r.id === st.rid}"><b>${esc(r.title)}</b><small>${esc(ago(r.updated_at))}</small></button>`).join('');
+  renderSidebarList();
+}
+// Sidebar's "conversation history" list \u2014 this is the SAME resumes list used by the
+// header switcher above, just rendered as a persistent rail instead of a dropdown, with
+// a client-side search filter. There is no separate "conversations" concept in the data
+// model (each resume record already embeds its own chat array \u2014 see lib/db.js `resumes`
+// table), so a resume IS a conversation here, exactly as the existing switcher treats it.
+function renderSidebarList() {
+  const list = $('#gsList'); if (!list) return;
+  const q = (st.sidebarQuery || '').trim().toLowerCase();
+  const items = q ? st.resumes.filter(r => (r.title || '').toLowerCase().includes(q)) : st.resumes;
+  if (!items.length) { list.innerHTML = '<p class="gs-empty">' + (q ? 'No resumes match your search.' : 'No resumes yet \u2014 start a New Chat.') + '</p>'; return; }
+  list.innerHTML = items.map(r => `<button type="button" class="gs-item" data-id="${esc(r.id)}" aria-current="${r.id === st.rid}" title="${esc(r.title)}"><span class="gs-item-title">${esc(r.title)}</span><span class="gs-item-time">${esc(ago(r.updated_at))}</span></button>`).join('');
 }
 // Free Trial / subscription credit status. Always comes from the server (/api/me on
 // load, then refreshed from every /api/ai response's headers) — never decided locally,
@@ -2008,6 +2097,7 @@ function renderBilling() {
     q.title = 'AI credits remaining on your plan.';
     q.classList.toggle('low', b.creditsRemaining <= 1);
   }
+  const gq = $('#gsQuota'); if (gq) gq.textContent = q.textContent;
 }
 function applyLockState() {
   const b = st.billing;
@@ -2240,8 +2330,8 @@ const errCopy = e => ERR[e && e.code] || ERR.upstream_error;
 
 function setView(v) {
   st.view = v; $('#app').setAttribute('data-view', v);
-  $('#tabChat').setAttribute('aria-selected', String(v === 'chat')); $('#tabAts').setAttribute('aria-selected', String(v === 'ats')); $('#tabResume').setAttribute('aria-selected', String(v === 'resume'));
-  document.querySelectorAll('.bottomnav button').forEach(b => { if (b.dataset.v === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+  $('#tabChat').setAttribute('aria-selected', String(v === 'chat')); $('#tabAts').setAttribute('aria-selected', String(v === 'ats')); $('#tabResume').setAttribute('aria-selected', String(v === 'resume')); $('#tabJob').setAttribute('aria-selected', String(v === 'job'));
+  document.querySelectorAll('.bottomnav button, .gs-nav button').forEach(b => { if (b.dataset.v === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   if (v === 'resume') requestAnimationFrame(measure);
 }
 
@@ -2596,7 +2686,7 @@ function renderAts() {
 
   // ---- Job Description Match: a completely separate engine, only when a JD has been analyzed ----
   const jm = (ats && analyzed) ? computeJobMatch(st.resume, jd) : null;
-  $('#jmCol').hidden = !jm;
+  $('#jmScoreHd').hidden = !jm;
   if (jm) { $('#jmScore').textContent = jm.total; $('#jmMeter').innerHTML = meterHtml(jm.total); }
 
   const out = $('#matchOut');
@@ -2946,9 +3036,30 @@ function wire() {
   ['dragenter', 'dragover'].forEach(ev => left.addEventListener(ev, e => { e.preventDefault(); left.classList.add('drop'); }));
   ['dragleave', 'drop'].forEach(ev => left.addEventListener(ev, e => { e.preventDefault(); left.classList.remove('drop'); }));
   left.addEventListener('drop', e => { const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) handleFile(f); });
-  $('#tabChat').addEventListener('click', () => setView('chat')); $('#tabAts').addEventListener('click', () => setView('ats')); $('#tabResume').addEventListener('click', () => setView('resume'));
+  $('#tabChat').addEventListener('click', () => setView('chat')); $('#tabAts').addEventListener('click', () => setView('ats')); $('#tabResume').addEventListener('click', () => setView('resume')); $('#tabJob').addEventListener('click', () => setView('job'));
   document.querySelectorAll('.bottomnav button').forEach(b => b.addEventListener('click', () => setView(b.dataset.v)));
   $('#scoreChip').addEventListener('click', () => setView('ats'));
+  // Sidebar nav mirrors the existing top tabs / bottomnav — same setView(), no new routing.
+  document.querySelectorAll('.gs-nav button').forEach(b => b.addEventListener('click', () => setView(b.dataset.v)));
+  // "New Chat" reuses the exact same resumeAction('new') the header's "New resume" menu
+  // item already calls (same create-resume API call, same trial/limit error handling).
+  $('#gsNewChat').addEventListener('click', () => resumeAction('new'));
+  $('#gsSearch').addEventListener('input', e => { st.sidebarQuery = e.target.value; renderSidebarList(); });
+  $('#gsList').addEventListener('click', e => { const b = e.target.closest('button[data-id]'); if (!b) return; if (b.dataset.id !== st.rid) openResume(b.dataset.id).catch(() => toast('Could not open that resume.')); });
+  // The sidebar's account row opens the SAME existing account menu (same options, same
+  // server calls) rather than a second copy of it — it just forwards the click.
+  $('#gsAcctBtn').addEventListener('click', e => { e.stopPropagation(); $('#acctBtn').click(); });
+  (function initSidebarCollapse() {
+    let collapsed = false;
+    try { collapsed = localStorage.getItem('itc_sidebar_collapsed') === '1'; } catch (e) {}
+    const shell = $('#appshell'), btn = $('#sidebarToggle');
+    const apply = c => { shell.classList.toggle('sidebar-collapsed', c); btn.setAttribute('aria-expanded', String(!c)); };
+    apply(collapsed);
+    btn.addEventListener('click', () => {
+      collapsed = !shell.classList.contains('sidebar-collapsed'); apply(collapsed);
+      try { localStorage.setItem('itc_sidebar_collapsed', collapsed ? '1' : '0'); } catch (e) {}
+    });
+  })();
   $('#tplClassic').addEventListener('click', () => { if (st.tpl === 'classic') return; st.tpl = 'classic'; st.fresh = false; snapshotVersion('Changed to Classic template'); renderPaper(); renderToolbar(); save(); });
   $('#tplClean').addEventListener('click', () => { if (st.tpl === 'clean') return; st.tpl = 'clean'; st.fresh = false; snapshotVersion('Changed to Modern template'); renderPaper(); renderToolbar(); save(); });
   $('#sw').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (st.accent === b.dataset.v) return; st.accent = b.dataset.v; st.fresh = false; snapshotVersion('Changed resume color to ' + (b.getAttribute('aria-label') || '').replace(' accent', '')); renderPaper(); renderToolbar(); save(); });
@@ -3020,6 +3131,7 @@ function wire() {
     const me = await api('GET', '/api/me'); st.user = me.user;
     st.billing = me.billing; renderBilling(); applyLockState(); loadPlans();
     $('#acctBtn').textContent = (me.user.name || me.user.email || '?').trim().charAt(0).toUpperCase(); $('#acctName').textContent = me.user.name || 'Your account'; $('#acctEmail').textContent = me.user.email;
+    $('#gsAvatar').textContent = $('#acctBtn').textContent; $('#gsAcctName').textContent = me.user.name || 'Your account';
     $('#adminLink').hidden = me.user.role !== 'admin';
     if (me.announcement) { $('#ann').textContent = me.announcement; $('#ann').hidden = false; }
     st.resumes = await api('GET', '/api/resumes');
