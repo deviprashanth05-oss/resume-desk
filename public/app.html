@@ -567,13 +567,15 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
               <p class="sub" id="atsSub">How reliably this resume can be read and filed by applicant tracking software.</p>
               <div class="score"><span class="n" id="rdScore">—</span><span class="of">/ 100</span></div>
               <div class="meter" id="rdMeter" aria-hidden="true"></div>
+              <div class="mrow"><button class="btn" id="atsImproveBtn" type="button">Improve ATS Score</button></div>
+              <p class="sub" id="atsImproveNote" style="margin:4px 0 0"></p>
             </div>
           </div>
           <div class="acc" id="atsBreakdown"></div>
           <div class="subsec"><h4>Why this score?</h4><div id="atsWhy"></div></div>
           <div class="subsec"><h4>Parsing diagnostics</h4><div id="atsDiag"></div></div>
           <div class="subsec"><h4>Recommended fixes</h4><div id="atsFixes"></div></div>
-          <p class="caveat">"ATS Compatibility Score" is a simulation, not a universal number — different ATS platforms parse resumes differently. This score is calculated from measurable resume parsing, extraction, structure, formatting and machine-readability checks, based only on your resume, never on a job description.</p>
+          <p class="caveat">"ATS Compatibility Score" is an application-generated estimate, not a universal or guaranteed number from any specific commercial ATS platform — different ATS platforms parse resumes differently. This score is calculated from measurable resume parsing, extraction, structure, formatting and machine-readability checks, based only on your resume, never on a job description.</p>
           </div>
           <div class="lk-teaser" id="atsTeaser" hidden>
             <h3 style="margin:0">ATS Compatibility</h3>
@@ -581,6 +583,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
             <button class="btn sm" type="button" id="atsUnlockBtn">Upgrade</button>
           </div>
         </div>
+        <div class="card" id="atsImproveCard" hidden></div>
       </section>
 
       <section class="pane" id="paneJob">
@@ -1629,14 +1632,17 @@ function testsContentEvidence(r) {
     else { weak++; if (weakExamples.length < 5) weakExamples.push(skill); }
   });
   const ratio = strong / allItems.length;
-  // Thresholds tightened and weight shifted onto this primary ratio test \u2014 the two secondary
-  // tests below used to let a resume with mostly-unsupported skills still earn most of this
-  // bucket's credit just for having "at least one" evidenced skill.
-  out.push(T('N01', 'Content Evidence', 'Skills are backed up by experience or project evidence, not just listed', 9, ratio >= 0.6 ? 'PASS' : ratio > 0 ? 'WARNING' : 'FAIL',
-    strong + ' of ' + allItems.length + ' skill(s) demonstrated in a real bullet.' + (strongExamples.length ? ' e.g. ' + strongExamples[0] : ''),
-    'Where genuinely true, mention key skills inside an experience or project bullet, not only in the Skills list.'));
+  // N01 and the old N03 used to score the SAME underlying number from two angles
+  // (strong/total and its complement weak/total) with different thresholds \u2014 a form of
+  // duplicate counting that let a resume with 75% unsupported skills land on two
+  // separate WARNINGs instead of one honest FAIL, diluting the real signal. Merged into
+  // one test with the bucket's primary weight, and tightened: a resume where most listed
+  // skills have zero supporting evidence anywhere else in the document is a genuine,
+  // scorable weakness, not a borderline warning.
+  out.push(T('N01', 'Content Evidence', 'Skills are backed up by experience or project evidence, not just listed', 13, ratio >= 0.6 ? 'PASS' : ratio >= 0.3 ? 'WARNING' : 'FAIL',
+    strong + ' of ' + allItems.length + ' skill(s) demonstrated in a real bullet; ' + weak + ' appear only in the Skills list with no supporting evidence.' + (strongExamples.length ? ' e.g. ' + strongExamples[0] : ''),
+    'Where genuinely true, mention key skills inside an experience or project bullet, not only in the Skills list. Do not add more unsupported skills \u2014 add evidence for the ones you already have.'));
   out.push(T('N02', 'Content Evidence', 'At least one skill has strong, specific evidence', 2, strong > 0 ? 'PASS' : 'WARNING', strong > 0 ? (strong + ' skill(s) with direct evidence.') : 'No skill could be matched to a specific accomplishment.', 'Connect a real accomplishment to one of your listed skills.'));
-  out.push(T('N03', 'Content Evidence', 'Evidence-only skills are a minority', 4, (weak / allItems.length) <= 0.5 ? 'PASS' : (weak / allItems.length) <= 0.75 ? 'WARNING' : 'FAIL', weak + ' of ' + allItems.length + ' skill(s) appear only in the Skills list with no supporting evidence.', 'Do not add more unsupported skills \u2014 add evidence for the ones you already have.'));
   return out;
 }
 
@@ -1950,7 +1956,7 @@ const SAMPLE = { name: 'Priya Sharma', headline: 'Data Analyst', contact: { emai
 const ACCENTS = [{ n: 'Ink', v: '#111111' }, { n: 'Navy', v: '#1F3A5F' }, { n: 'Teal', v: '#0F6B63' }, { n: 'Maroon', v: '#7A1F3D' }, { n: 'Indigo', v: '#3B3F99' }];
 const PH = ['Python skill add pannu…', 'Summary-a innum better-a maathu…', 'Enga project-a resume-la add pannunga…', 'Make my bullets sound stronger…', 'Company name maathi, dates fix pannu…'];
 
-const st = { resume: norm({}), prev: [], chat: [], jd: '', tpl: 'classic', accent: null, ats: null, improve: null, importMeta: null, view: 'chat', busy: false, ctl: null, hlBase: null, fresh: false, liveText: '', liveStreaming: false, liveStart: 0, timer: null, availChecked: false, sidebarQuery: '' };
+const st = { resume: norm({}), prev: [], chat: [], jd: '', tpl: 'classic', accent: null, ats: null, improve: null, atsImprove: null, importMeta: null, view: 'chat', busy: false, ctl: null, hlBase: null, fresh: false, liveText: '', liveStreaming: false, liveStart: 0, timer: null, availChecked: false, sidebarQuery: '' };
 const accentNow = () => st.accent || (st.tpl === 'clean' ? '#1F3A5F' : '#111111');
 
 /* ---------- talking to this server ---------- */
@@ -2027,7 +2033,7 @@ function applyLoaded(rec) {
   st.rid = rec.id; st.title = rec.title || 'Untitled resume'; st.titleAuto = d.titleAuto !== false;
   st.resume = norm(d.resume); st.prev = (d.prev || []).map(norm); st.versions = Array.isArray(d.versions) ? d.versions : []; st.chat = Array.isArray(d.chat) && d.chat.length ? d.chat : [greetingMsg()];
   st.jd = d.jd || ''; st.tpl = d.tpl === 'clean' ? 'clean' : 'classic'; st.accent = ACCENTS.some(a => a.v === d.accent) ? d.accent : null; st.ats = d.ats || null; st.importMeta = d.importMeta || null;
-  st.hlBase = null; st.fresh = false; $('#jd').value = st.jd; setSaveState('');
+  st.hlBase = null; st.fresh = false; st.improve = null; st.atsImprove = null; $('#jd').value = st.jd; setSaveState('');
 }
 async function openResume(id) {
   if (st.busy) { toast('Wait for the current edit to finish.'); return; }
@@ -2555,7 +2561,7 @@ async function importResume(kind, payload, label, fileMeta) {
     else out = await ai.json(PARSE_RULES + '\n\nRESUME TEXT:\n' + payload.slice(0, 40000), { kind: 'import', cache: false, signal });
     const nr = norm(out && out.resume ? out.resume : out);
     if (isEmpty(nr)) throw { userMsg: 'I could not find resume content in that. Try pasting the text instead.' };
-    st.prev = []; st.versions = []; st.hlBase = null; st.fresh = false; st.resume = nr; st.ats = null; st.improve = null;
+    st.prev = []; st.versions = []; st.hlBase = null; st.fresh = false; st.resume = nr; st.ats = null; st.improve = null; st.atsImprove = null;
     st.importMeta = fileMeta || null; // real, measured file-level facts (page count, reading order, etc.) — null when the resume was typed/pasted, not uploaded as a file
     snapshotVersion('Original Resume');
     const gaps = computeATSCompatibility(nr, st.importMeta).allTests.filter(t => t.status === 'FAIL').slice(0, 3).map(t => t.description.toLowerCase());
@@ -2677,6 +2683,8 @@ function renderAts() {
   $('#atsWhy').innerHTML = empty ? '' : (bucketSummaryHtml(ats) + whyScoreHtml(ats));
   $('#atsDiag').innerHTML = empty ? '' : diagnosticsHtml(st.resume, ats);
   $('#atsFixes').innerHTML = empty ? '' : fixesHtml(ats);
+  $('#atsImproveBtn').disabled = empty;
+  renderAtsImprove(); // independent of any JD — never cleared or touched by Job Match rendering below
 
   // ---- Job Description Match: a completely separate engine, only when a JD has been analyzed ----
   const jm = (ats && analyzed) ? computeJobMatch(st.resume, jd) : null;
@@ -2806,6 +2814,100 @@ async function improveResume() {
 
 
 
+
+/* ---------- Improve ATS Score (ATS Compatibility page) ----------
+   Deliberately separate from improveResume() above: that one tailors against a job
+   description and is Power-plan gated (billing.TAILOR_GATED_FEATURES / kind:'improve').
+   This one fixes resume-only ATS issues — parsing, structure, formatting, missing
+   evidence — with no job description involved at all, so it is billed as an ordinary
+   AI resume edit (kind:'chat', classified as CONTENT_EDIT) instead: available on the
+   Free Trial and every paid plan while credits remain, same as typing an edit in chat.
+   This is a deliberate choice, not an oversight — see the Final Report for why. */
+function atsIssueList(ats) {
+  // Same test objects the score itself and the "Recommended fixes" panel already use —
+  // not a second, independently-decided idea of what's wrong with the resume.
+  return ats.allTests.filter(t => t.status === 'FAIL' || t.status === 'WARNING')
+    .sort((a, b) => (b.weight || 0) - (a.weight || 0));
+}
+function renderAtsImprove() {
+  const card = $('#atsImproveCard');
+  if (!st.atsImprove) { card.hidden = true; card.innerHTML = ''; return; }
+  const imp = st.atsImprove, delta = imp.after - imp.before;
+  card.hidden = false;
+  let h = '<h3>ATS Score: Before → After</h3><p class="sub">Both scores are recalculated by re-running the exact same ATS Compatibility engine on the rewritten resume — not estimated or forced upward.</p>';
+  h += '<div class="ba-grid"><div class="ba-col"><h4>Before</h4><div class="ba-score">' + imp.before + '</div></div>';
+  h += '<div class="ba-col"><h4>After</h4><div class="ba-score">' + imp.after + ' <span class="ba-delta">' + (delta >= 0 ? '↑' : '↓') + ' ' + Math.abs(delta) + '</span></div></div></div>';
+  if (delta <= 0) h += '<div class="issue"><span class="lv warning">notice</span><div>The score did not improve' + (delta < 0 ? ' — it went down' : '') + '. The issues below could not be safely fixed without inventing information, or fixing them did not change a scored check. Review the changes (if any) and the remaining issues, and add any missing real facts yourself where noted.<small>ITC Resume never forces a score upward — this is the engine’s honest, recalculated result.</small></div></div>';
+  if (imp.addedNote) h += '<p class="sub">' + esc(imp.addedNote) + '</p>';
+  if (imp.flaggedSkills && imp.flaggedSkills.length) h += '<div class="issue"><span class="lv warning">warning</span><div>New wording mentions ' + imp.flaggedSkills.map(esc).join(', ') + ', which was not evidenced in your original resume.<small>Please verify this is genuinely true before applying — edit the bullet if it is not.</small></div></div>';
+  if (imp.diffs.length) h += '<h4>What changed</h4>' + imp.diffs.map(diffCard).join('');
+  else h += '<p class="sub">No wording changed.</p>';
+  if (imp.remainingIssues.length) h += '<h4>Remaining issues</h4>' + issuesHtml(imp.remainingIssues.map(t => ({ level: t.status === 'FAIL' ? 'critical' : 'warning', text: t.description, why: t.evidence, action: t.remediation })));
+  h += '<div class="mrow"><button class="btn" id="applyAtsImproveBtn" type="button">Apply changes</button><button class="btn ghost" id="discardAtsImproveBtn" type="button">Discard</button></div>';
+  card.innerHTML = h;
+}
+let atsImproveBusy = false;
+async function improveAts() {
+  if (atsImproveBusy) return; // guards against a double-click submitting two AI calls/credits
+  if (!ai) { toast('AI editing is not available right now.'); return; }
+  if (isEmpty(st.resume)) { toast('Add your resume first.'); return; }
+  const beforeAts = computeATSCompatibility(st.resume, st.importMeta);
+  const issues = atsIssueList(beforeAts);
+  if (!issues.length) { $('#atsImproveNote').textContent = 'No fixable ATS issues were found — every applicable check already passes.'; return; }
+  atsImproveBusy = true;
+  const btn = $('#atsImproveBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Improving…'; }
+  $('#atsImproveNote').textContent = '';
+  const issueLines = issues.slice(0, 12).map(t => '- [' + t.status + '] ' + t.description + (t.evidence ? ' — ' + t.evidence : '') + (t.remediation ? ' (Fix: ' + t.remediation + ')' : ''));
+  const promptLines = [
+    'Improve this resume’s ATS Compatibility by fixing the specific issues listed below. This is a parsing/structure/formatting/evidence repair task — there is no job description involved, so do not tailor wording toward any particular role.',
+    'STRICT RULES (never break these):',
+    '- NEVER invent skills, employers, job titles, dates, degrees, certifications, tools, technologies, metrics or achievements that are not already in the CURRENT_RESUME.',
+    '- You may reword, restructure, fix section headings, normalize dates, remove unusual/unsupported characters, and tighten bullets ONLY where the resume’s existing content genuinely supports it.',
+    '- If a quantified result would genuinely help but no real number exists anywhere in the resume, leave it as plain text — do not fabricate a percentage or metric.',
+    '- Do NOT add keywords or skills merely to raise the score. Only move or reword something that is already true.',
+    '- Keep every fact (companies, dates, degrees, numbers) exactly as given.',
+    '',
+    'ISSUES_TO_FIX (from the ATS Compatibility engine, most important first):',
+    issueLines.join('\n') || '(none)',
+    '',
+    'Reply with only this JSON: {"resume": <the complete updated resume using this schema>}',
+    'SCHEMA', SCHEMA, '',
+    'CURRENT_RESUME:', JSON.stringify(st.resume),
+    '',
+    'USER_MESSAGE:',
+    'Improve this resume to fix the ATS issues listed above without inventing new facts.'
+  ];
+  try {
+    const out = await ai.json(promptLines.join('\n'), { kind: 'chat' });
+    let next = norm(out && out.resume ? out.resume : out);
+    if (isEmpty(next)) throw new Error('empty');
+    const origText = allResumeText(st.resume).toLowerCase();
+    let strippedCount = 0;
+    next = Object.assign({}, next, { skills: next.skills.map(g => Object.assign({}, g, { items: g.items.filter(it => { const known = origText.includes(String(it).toLowerCase()); if (!known) strippedCount++; return known; }) })).filter(g => g.items.length) });
+    const afterAts = computeATSCompatibility(next, st.importMeta);
+    const diffs = [];
+    st.resume.experience.forEach((e, i) => { const ne = next.experience[i]; if (!ne) return; e.bullets.forEach((b, j) => { const nb = ne.bullets[j]; if (nb && nb !== b) diffs.push({ label: (e.title || e.company) + ' — bullet ' + (j + 1), diff: diffWords(b, nb) }); }); });
+    st.resume.projects.forEach((p, i) => { const np = next.projects[i]; if (!np) return; p.bullets.forEach((b, j) => { const nb = np.bullets[j]; if (nb && nb !== b) diffs.push({ label: p.name + ' — bullet ' + (j + 1), diff: diffWords(b, nb) }); }); });
+    if (st.resume.summary && next.summary && st.resume.summary !== next.summary) diffs.unshift({ label: 'Professional summary', diff: diffWords(st.resume.summary, next.summary) });
+    const origSkillSet = new Set(findSkillMentions(origText));
+    const flaggedSkills = new Set();
+    diffs.forEach(d => { const addedText = d.diff.filter(p => p.type === 'add').map(p => p.text).join(' '); findSkillMentions(addedText).forEach(sk => { if (!origSkillSet.has(sk)) flaggedSkills.add(sk); }); });
+    st.atsImprove = {
+      resume: next, before: beforeAts.total, after: afterAts.total,
+      diffs: diffs.slice(0, 8),
+      remainingIssues: atsIssueList(afterAts).slice(0, 8),
+      addedNote: strippedCount ? ('Removed ' + strippedCount + ' suggested addition' + (strippedCount > 1 ? 's' : '') + ' that had no supporting evidence in your original resume.') : '',
+      flaggedSkills: [...flaggedSkills].map(displaySkill)
+    };
+    renderAtsImprove();
+  } catch (e) {
+    if (e && e.code === 'locked_feature') { renderBilling(); applyLockState(); openUpgradeModal('locked'); }
+    else toast(e && e.code ? errCopy(e) : 'Could not generate improvements. Try again.');
+  }
+  atsImproveBusy = false;
+  if (btn) { btn.disabled = false; btn.textContent = 'Improve ATS Score'; }
+  renderBilling();
+}
 
 /* ---------- resume preview: "What Recruiters See" vs "What ATS Sees" ----------
    Reuses the canonical resume model (sections()/contactList()) and the same
@@ -3070,14 +3172,30 @@ function wire() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(true); });
   window.addEventListener('pagehide', () => flush(true));
   $('#jd').addEventListener('input', e => { st.jd = e.target.value; clearTimeout(wire.t); wire.t = setTimeout(save, 400); });
+  let matchBusy = false;
   $('#matchBtn').addEventListener('click', async () => {
-    // Job Match itself is computed locally (deterministic, no AI call), so this
-    // live server check is the real gate — never trust the cached pill in st.billing
-    // alone, in case a subscription just changed in another tab.
-    try { const r = await api('GET', '/api/billing/feature/JOB_MATCH'); st.billing = Object.assign({}, st.billing, r.billing); renderBilling(); applyLockState(); if (!r.allowed) { openUpgradeModal('locked'); return; } }
-    catch (e) { /* if the check itself fails, fall through to the cached state below */ }
-    if (st.billing && !st.billing.unlimited && !st.billing.isPaid) { openUpgradeModal('locked'); return; }
-    analyzeMatch();
+    // Guard against a double-click firing two overlapping permission checks (and,
+    // on a slow connection, two overlapping analyses) — the button is disabled with
+    // a loading label for the whole round trip, not just during analyzeMatch() itself.
+    if (matchBusy) return;
+    matchBusy = true;
+    const btn = $('#matchBtn'), prevLabel = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Checking…';
+    try {
+      // Job Match itself is computed locally (deterministic, no AI call), so this
+      // live server check is the real gate — never trust the cached pill in st.billing
+      // alone, in case a subscription just changed in another tab.
+      try { const r = await api('GET', '/api/billing/feature/JOB_MATCH'); st.billing = Object.assign({}, st.billing, r.billing); renderBilling(); applyLockState(); if (!r.allowed) { openUpgradeModal('locked'); return; } }
+      catch (e) { toast('Could not verify your plan. Check your connection and try again.'); return; }
+      if (st.billing && !st.billing.unlimited && !st.billing.isPaid) { openUpgradeModal('locked'); return; }
+      btn.textContent = 'Analyzing…';
+      analyzeMatch();
+    } finally {
+      matchBusy = false;
+      // analyzeMatch() (when it ran) already set the correct 'Analyze'/'Re-analyze'
+      // label via renderAts(); this only restores the button on an early return above.
+      if (btn.disabled) { btn.disabled = false; if (btn.textContent === 'Checking…' || btn.textContent === 'Analyzing…') btn.textContent = prevLabel; }
+    }
   });
   $('#jdUnlockBtn').addEventListener('click', () => openUpgradeModal('locked'));
   const atsUnlockBtn = $('#atsUnlockBtn'); if (atsUnlockBtn) atsUnlockBtn.addEventListener('click', () => openUpgradeModal(st.billing && st.billing.isPaid ? 'credits' : 'trial'));
@@ -3111,6 +3229,14 @@ function wire() {
       st.chat.push({ role: 'note', text: 'Applied the improved resume.', local: true });
       renderAll(); save();
     } else if (e.target.id === 'discardImproveBtn') { st.improve = null; renderImprove(); }
+  });
+  $('#atsImproveBtn').addEventListener('click', improveAts);
+  $('#atsImproveCard').addEventListener('click', e => {
+    if (e.target.id === 'applyAtsImproveBtn') {
+      applyResume(st.atsImprove.resume, true); st.atsImprove = null; snapshotVersion('ATS score improvement applied');
+      st.chat.push({ role: 'note', text: 'Applied the ATS Compatibility improvements.', local: true });
+      renderAll(); save();
+    } else if (e.target.id === 'discardAtsImproveBtn') { st.atsImprove = null; renderAtsImprove(); }
   });
   if (window.ResizeObserver) new ResizeObserver(() => measure()).observe($('#deskscroll'));
   window.addEventListener('resize', measure);
