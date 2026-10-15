@@ -106,7 +106,10 @@ svg.ic{flex:none}
 
 /* chat */
 .banner{margin:12px 14px 0;padding:9px 12px;border-radius:10px;background:var(--tint);font-size:13.5px}
-#msgs{flex:1;min-height:0;overflow:auto;padding:12px 14px 6px;display:flex;flex-direction:column;gap:10px;font-size:15px}
+/* Chat-only typography reduction: scoped to #msgs (message text) and its descendants only —
+   never body/html/root, never the resume preview or ATS/JD pages, and never the outer chat
+   container's size (padding/gap/max-width above are unchanged, only text shrinks). */
+#msgs{flex:1;min-height:0;overflow:auto;padding:12px 14px 6px;display:flex;flex-direction:column;gap:10px;font-size:13.5px}
 .msg p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5}
 .msg{animation:msgIn .28s cubic-bezier(.2,.7,.3,1) both}
 @keyframes msgIn{from{opacity:0;transform:translateY(6px) scale(.985)}to{opacity:1;transform:none}}
@@ -121,21 +124,25 @@ svg.ic{flex:none}
 .msg.err .ava{background:var(--bad)}
 .msg.err .bubble{border-left-color:var(--bad);border-color:color-mix(in srgb,var(--bad) 22%,var(--line))}
 .msg.err .bubble p{color:var(--bad)}
-.note{font-size:12.5px;color:var(--muted);text-align:center}
-.chg-list{margin:6px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--muted)}
+.note{font-size:12px;color:var(--muted);text-align:center}
+.chg-list{margin:6px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
 .chg-list li::before{content:"";display:inline-block;width:12px;height:10px;margin-right:8px;border-radius:2px;background:var(--hl);vertical-align:-1px}
-.msg .inl{margin-top:6px;background:none;border:0;padding:0;color:var(--accent);font-size:12.5px;text-decoration:underline;text-underline-offset:3px}
+.msg .inl{margin-top:6px;background:none;border:0;padding:0;color:var(--accent);font-size:12px;text-decoration:underline;text-underline-offset:3px}
 .chips{display:flex;gap:6px;padding:2px 14px 6px;overflow-x:auto;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
-.chip{flex:none;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:12.5px;white-space:nowrap}
+.chip{flex:none;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:12px;white-space:nowrap}
 .chip:hover{border-color:var(--accent)}
 .composer{margin:0 12px 8px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:8px 10px 6px;box-shadow:0 1px 2px rgba(15,27,51,.06),0 8px 24px -16px rgba(15,27,51,.35);transition:border-color .18s,box-shadow .18s}
 .composer:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent),0 8px 24px -16px rgba(15,27,51,.4)}
 .composer.listening{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+/* The 16px here is intentionally NOT reduced like other chat text: iOS Safari auto-zooms the
+   page on focus for any input/textarea under 16px, which would be a real usability regression.
+   Only the placeholder (shown while unfocused/empty) is sized down below. */
 .composer textarea{width:100%;border:0;background:none;resize:none;outline:0;min-height:22px;max-height:160px;padding:2px 2px 6px;font-size:16px;line-height:1.4}
+.composer textarea::placeholder{font-size:13.5px}
 .composer .bar{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .tools{display:flex;gap:4px;align-items:center}
-.iconbtn{background:none;border:0;border-radius:10px;padding:7px 10px;color:var(--muted);font-size:13.5px;display:inline-flex;gap:6px;align-items:center;transition:color .15s,background .15s,transform .12s}
+.iconbtn{background:none;border:0;border-radius:10px;padding:7px 10px;color:var(--muted);font-size:12.5px;display:inline-flex;gap:6px;align-items:center;transition:color .15s,background .15s,transform .12s}
 .iconbtn:hover:not(:disabled){color:var(--ink);background:var(--tint)}
 .iconbtn:active:not(:disabled){transform:scale(.94)}
 .iconbtn:disabled{opacity:.45;cursor:not-allowed}
@@ -162,7 +169,7 @@ svg.ic{flex:none}
 .typing i{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:bob 1.1s ease-in-out infinite}
 .typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
 @keyframes bob{0%,60%,100%{opacity:.35;transform:translateY(0) scale(.85)}30%{opacity:1;transform:translateY(-3px) scale(1)}}
-.wait{color:var(--muted);font-size:13px;margin-left:8px}
+.wait{color:var(--muted);font-size:12px;margin-left:8px}
 .msg.ai:has(.typing) .ava{animation:avaPulse 1.6s ease-in-out infinite}
 @keyframes avaPulse{0%,100%{box-shadow:0 1px 4px color-mix(in srgb,var(--accent) 45%,transparent)}50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 16%,transparent)}}
 @media (prefers-reduced-motion: reduce){.msg.ai:has(.typing) .ava{animation:none}}
@@ -1157,9 +1164,17 @@ const DATE_RE = /\b(present|current|now|\d{4}|jan|feb|mar|apr|may|jun|jul|aug|se
 const REQUIRED_MARKERS = /\b(must have|required|requires|requirement|minimum|mandatory|essential|you will need|need to have)\b/i;
 const PREFERRED_MARKERS = /\b(preferred|nice to have|bonus|plus\b|desirable|advantage|good to have|a plus)\b/i;
 const PREFERRED_HEADING = /^(preferred|nice to have|bonus|good to have|desirable)/i;
-const REQUIRED_HEADING = /^(requirement|required|must[\s-]?have|qualification|what you.?ll need|minimum qualification)/i;
-const RESP_HEADING = /^(responsibilit|what you.?ll do|role|duties|the role|key responsibilit)/i;
+const REQUIRED_HEADING = /^(requirement|required|must[\s-]?have|qualification|what you.?ll need|what you need|what you.?ll bring|what you bring|what we.?re looking for|who you are|skills (and|&) experience|your experience|minimum qualification)/i;
+const RESP_HEADING = /^(responsibilit|what you.?ll do|what you.?ll own|what you.?ll be doing|in this role|day[\s-]to[\s-]day|a day in the life|your impact|key duties|core duties|duties|the role|key responsibilit|you will\b|your role\b)/i;
 const EDU_HEADING = /^(education|academic)/i;
+// Non-title opener lines: a JD's first line is often a company blurb or greeting, not the
+// job title, so these are rejected as job_title candidates rather than trusted blindly.
+const NON_TITLE_LINE = /^(about|who we are|our team|overview|company overview|job description|description|summary|we are|we're|join|hi\b|hello\b|hey\b)\b/i;
+const TITLE_LABEL = /^(job\s*title|position|role)\s*:\s*(.+)$/i;
+// A whitelist of common JD action-verb lemmas, for JDs with no recognizable heading at all —
+// far more reliable than guessing from a word's suffix (which misses verbs like "Design",
+// "Build", "Own", "Lead", "Support", "Partner", "Monitor" and wrongly matches non-verbs ending in "e").
+const RESP_VERB_RE = /^(build|own|lead|support|partner|monitor|design|develop|manage|create|write|analy[sz]e|collaborate|coordinate|maintain|improve|oversee|plan|implement|define|establish|conduct|perform|ensure|deliver|execute|drive|mentor|guide|track|review|prepare|present|communicate|handle|resolve|troubleshoot|optimi[sz]e|automate|document|train|assist|help|identify|evaluate|investigate|gather|extract|transform|visuali[sz]e|generate|configure|deploy|test|debug|work|partner)\b/i;
 const SKILL_NAMES = Object.keys(SKILL_DICT);
 
 const ALIAS_REGEX = (() => {
@@ -1181,21 +1196,30 @@ function parseJD(text) {
   const jd = { job_title: '', required_skills: [], preferred_skills: [], responsibilities: [], required_experience_years: null, education_requirements: [], certifications: [], domain_keywords: [], seniority: '', raw: text };
   if (!text) return jd;
   const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
-  if (lines[0] && lines[0].split(/\s+/).length <= 8 && !/[.:]$/.test(lines[0])) jd.job_title = lines[0];
+  // Job title: prefer an explicit "Job Title:"/"Position:"/"Role:" label anywhere in the first
+  // few lines; otherwise fall back to line 1, but only when it doesn't look like a company
+  // blurb or greeting — a wrong title is worse than no title, since an incorrect-but-present
+  // title produces a real (and misleadingly low) Role/Title Alignment score instead of being
+  // correctly excluded, while an empty title correctly excludes that category.
+  for (const l of lines.slice(0, 5)) { const lm = l.match(TITLE_LABEL); if (lm) { jd.job_title = lm[2].trim(); break; } }
+  if (!jd.job_title && lines[0] && lines[0].split(/\s+/).length <= 8 && !/[.:]$/.test(lines[0]) && !NON_TITLE_LINE.test(lines[0])) jd.job_title = lines[0];
   const seniorityM = text.match(/\b(senior|junior|entry[- ]level|lead|principal|staff|associate|intern(?:ship)?)\b/i);
   if (seniorityM) jd.seniority = seniorityM[1];
   const expM = text.match(/(\d+)\s*\+?\s*(?:-|to)\s*(\d+)?\s*\+?\s*years?/i) || text.match(/(\d+)\s*\+?\s*years?/i);
   if (expM) jd.required_experience_years = parseInt(expM[1], 10);
 
-  let mode = 'required'; // default section unless a "preferred" heading is seen
+  let mode = 'required'; // default section unless a heading says otherwise
+  let sawHeading = false; // true once ANY explicit section heading has been seen
   const reqSkillSet = new Set(), prefSkillSet = new Set();
   for (const line of lines) {
-    if (PREFERRED_HEADING.test(line)) { mode = 'preferred'; continue; }
-    if (REQUIRED_HEADING.test(line)) { mode = 'required'; continue; }
-    if (RESP_HEADING.test(line)) { mode = 'responsibility'; continue; }
-    if (EDU_HEADING.test(line)) { mode = 'education'; continue; }
+    if (PREFERRED_HEADING.test(line)) { mode = 'preferred'; sawHeading = true; continue; }
+    if (REQUIRED_HEADING.test(line)) { mode = 'required'; sawHeading = true; continue; }
+    if (RESP_HEADING.test(line)) { mode = 'responsibility'; sawHeading = true; continue; }
+    if (EDU_HEADING.test(line)) { mode = 'education'; sawHeading = true; continue; }
     const isBullet = /^[-•*\u2022]|^\d+[.)]/.test(line);
-    const cleaned = line.replace(/^[-•*\u2022\d.)\s]+/, '').trim();
+    // Strip only a genuine bullet marker or numbered-list prefix ("1. "/"2) "), never a bare
+    // leading digit — a naive digit-eating strip here would corrupt real content like "3+ years".
+    const cleaned = line.replace(/^(?:[-•*\u2022]+\s*|\d+[.)]\s+)/, '').trim();
     if (!cleaned) continue;
     // certifications
     if (/certif/i.test(cleaned)) jd.certifications.push(cleaned);
@@ -1206,8 +1230,13 @@ function parseJD(text) {
     const lineIsPreferred = PREFERRED_MARKERS.test(cleaned) || mode === 'preferred';
     const lineIsRequired = REQUIRED_MARKERS.test(cleaned) || mode === 'required';
     skills.forEach(sk => { if (lineIsPreferred && !lineIsRequired) prefSkillSet.add(sk); else reqSkillSet.add(sk); });
-    // responsibilities: bullet-like lines in responsibility mode, or lines starting with a verb
-    if (mode === 'responsibility' || (isBullet && /^[a-z]+ /i.test(cleaned) && /(ing|e|ed)\b/i.test(cleaned.split(' ')[0]))) {
+    // Responsibilities: any line inside an explicit "Responsibilities"-type section (mode), OR,
+    // for JDs with NO recognizable heading at all, a bulleted line starting with a real action
+    // verb. The !sawHeading guard stops lines clearly inside a Requirements/Preferred/Education
+    // section (explicitly headed) from ALSO being counted as responsibilities — a requirement
+    // line like "Experience with Power BI" is not a responsibility, even though its first word
+    // happens to end in "e".
+    if (mode === 'responsibility' || (!sawHeading && isBullet && RESP_VERB_RE.test(cleaned))) {
       if (cleaned.length > 12 && !/certif/i.test(cleaned)) jd.responsibilities.push(cleaned);
     }
   }
@@ -2750,6 +2779,7 @@ function renderImprove() {
 async function improveResume() {
   if (!ai) { toast('AI editing is not available right now.'); return; }
   const jd = currentJdParsed(); if (!jd) return;
+  const startRid = st.rid; // discard the result below if the user switches resumes while this is in flight
   const beforeAts = computeATSCompatibility(st.resume, st.importMeta), beforeJm = computeJobMatch(st.resume, jd);
   const btn = $('#improveBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Improving\u2026'; }
   const missing = beforeJm.coverageTable.filter(r => r.status === 'missing').map(r => (r.kind === 'Required' ? 'Required: ' : 'Preferred: ') + displaySkill(r.requirement));
@@ -2776,6 +2806,7 @@ async function improveResume() {
   ];
   try {
     const out = await ai.json(promptLines.join('\n'), { kind: 'improve' });
+    if (st.rid !== startRid) { toast('You switched resumes while this was running — discarded that result.'); if (btn) { btn.disabled = false; btn.textContent = 'Improve My Resume'; } return; }
     let next = norm(out && out.resume ? out.resume : out);
     if (isEmpty(next)) throw new Error('empty');
     const origText = allResumeText(st.resume).toLowerCase();
@@ -2851,12 +2882,13 @@ async function improveAts() {
   if (atsImproveBusy) return; // guards against a double-click submitting two AI calls/credits
   if (!ai) { toast('AI editing is not available right now.'); return; }
   if (isEmpty(st.resume)) { toast('Add your resume first.'); return; }
+  const startRid = st.rid; // if the user switches resumes while this is in flight, the result below must be discarded, not applied to the wrong resume
   const beforeAts = computeATSCompatibility(st.resume, st.importMeta);
   const issues = atsIssueList(beforeAts);
   if (!issues.length) { $('#atsImproveNote').textContent = 'No fixable ATS issues were found — every applicable check already passes.'; return; }
   atsImproveBusy = true;
   const btn = $('#atsImproveBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Improving…'; }
-  $('#atsImproveNote').textContent = '';
+  $('#atsImproveNote').textContent = 'Analyzing your resume and drafting fixes — this can take a few seconds…';
   const issueLines = issues.slice(0, 12).map(t => '- [' + t.status + '] ' + t.description + (t.evidence ? ' — ' + t.evidence : '') + (t.remediation ? ' (Fix: ' + t.remediation + ')' : ''));
   const promptLines = [
     'Improve this resume’s ATS Compatibility by fixing the specific issues listed below. This is a parsing/structure/formatting/evidence repair task — there is no job description involved, so do not tailor wording toward any particular role.',
@@ -2879,6 +2911,7 @@ async function improveAts() {
   ];
   try {
     const out = await ai.json(promptLines.join('\n'), { kind: 'chat' });
+    if (st.rid !== startRid) { toast('You switched resumes while this was running — discarded that result.'); atsImproveBusy = false; if (btn) { btn.disabled = false; btn.textContent = 'Improve ATS Score'; } renderBilling(); return; }
     let next = norm(out && out.resume ? out.resume : out);
     if (isEmpty(next)) throw new Error('empty');
     const origText = allResumeText(st.resume).toLowerCase();
@@ -2900,7 +2933,15 @@ async function improveAts() {
       flaggedSkills: [...flaggedSkills].map(displaySkill)
     };
     renderAtsImprove();
+    // The headline score at the top of the page intentionally does NOT change yet — it reflects
+    // your saved resume, and this is only a proposal pending your review below. Without this,
+    // the page looks like nothing happened (the exact complaint this round of fixes addresses).
+    $('#atsImproveNote').textContent = 'Review the proposed changes below, then click "Apply changes" to actually update your resume and score.';
+    const card = $('#atsImproveCard');
+    if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    toast(afterAts.total > beforeAts.total ? ('Proposed changes ready — estimated ' + beforeAts.total + ' → ' + afterAts.total + '. Review below.') : 'Proposed changes ready — review below.');
   } catch (e) {
+    $('#atsImproveNote').textContent = '';
     if (e && e.code === 'locked_feature') { renderBilling(); applyLockState(); openUpgradeModal('locked'); }
     else toast(e && e.code ? errCopy(e) : 'Could not generate improvements. Try again.');
   }
