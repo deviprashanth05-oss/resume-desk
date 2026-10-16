@@ -2910,12 +2910,33 @@ function makeRecognizer() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const rec = new SR();
   rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
+  // en-IN (vs. the default en-US) is still a single fixed English dialect under the hood —
+  // the browser's built-in engine cannot switch languages mid-utterance, so it does not give
+  // real Tamil or Tamil-English code-switching recognition. It's set only because it tends to
+  // transcribe Indian-accented English speech more accurately than en-US. True Tanglish/Tamil
+  // support needs a different, non-browser speech-to-text service — see the note sent with
+  // this change for what that would involve.
+  try { rec.lang = 'en-IN'; } catch (e) {}
   rec.onresult = e => {
-    let interim = '', finalChunk = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      const r = e.results[i]; if (r.isFinal) finalChunk += r[0].transcript; else interim += r[0].transcript;
+    // Root cause of the "I I I want I want I want to..." bug: this used to start the loop
+    // at e.resultIndex and APPEND each new isFinal chunk onto voice.finalAdded with +=. That
+    // is only safe if a browser's SpeechRecognition implementation (a) never re-finalizes an
+    // index it already finalized, and (b) always advances resultIndex past settled results.
+    // On this device's engine, neither held: it kept re-firing isFinal=true on a *growing
+    // prefix* of the same utterance ("I" -> "I want" -> "I want to" -> ...), and each growing
+    // version got appended on top of the last instead of replacing it. Fix: every result slot
+    // is independently idempotent (once isFinal, its transcript text is stable), so rebuild
+    // the full finalized transcript FROM SCRATCH on every event, starting at index 0, instead
+    // of trusting resultIndex to tell us what's "new". This can never duplicate, regardless
+    // of how a given browser chooses to re-send results.
+    let finalText = '', interim = '';
+    for (let i = 0; i < e.results.length; i++) {
+      const r = e.results[i], chunk = String(r[0].transcript || '').trim();
+      if (!chunk) continue;
+      if (r.isFinal) finalText += (finalText ? ' ' : '') + chunk;
+      else interim += (interim ? ' ' : '') + chunk;
     }
-    if (finalChunk) voice.finalAdded += (voice.finalAdded && !/\s$/.test(voice.finalAdded) ? ' ' : '') + finalChunk.trim();
+    voice.finalAdded = finalText;
     const t = $('#inp');
     const joined = (voice.baseText + (voice.baseText && (voice.finalAdded || interim) ? ' ' : '') + voice.finalAdded + (interim ? (voice.finalAdded ? ' ' : '') + interim : '')).replace(/\s+/g, ' ');
     t.value = joined; autosize();
