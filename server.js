@@ -42,6 +42,10 @@ app.use('/api', (req, res, next) => {
   next();
 });
 app.post('/api/ai', A.requireAuth, express.json({ limit: '9mb' }), (req, res, next) => ai.handler(req, res).catch(next));
+// Base64 inflates binary size by ~33%, so a 26mb JSON body limit here covers roughly
+// 19MB of raw audio — comfortably more than MAX_AUDIO_BYTES in lib/ai.js (20MB decoded)
+// ever needs, while still rejecting absurdly long recordings before they're even parsed.
+app.post('/api/voice/transcribe', A.requireAuth, express.json({ limit: '26mb' }), (req, res, next) => ai.transcribeHandler(req, res).catch(next));
 app.use('/api', express.json({ limit: '1mb' }));
 
 const clean = s => String(s == null ? '' : s).replace(/[\u0000-\u001f<>]/g, '').trim();
