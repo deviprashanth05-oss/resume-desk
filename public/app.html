@@ -435,6 +435,17 @@ dialog .dsc{margin:0 0 14px;color:var(--muted);font-size:13.5px}
 dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 #dlgFields{margin-top:6px}
 
+/* --- resume-ready confirmation --- */
+#readyDlg.readydlg{width:min(520px,94vw)}
+.ready-score{display:flex;align-items:baseline;gap:10px;margin:10px 0 4px;padding:10px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px}
+.ready-score-n{font:600 26px/1 var(--sans);color:var(--accent)}
+.ready-score-of{font-size:12px;color:var(--muted)}
+.ready-sugs{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:7px}
+.ready-sugs li{font-size:13px;color:var(--muted);padding-left:18px;position:relative}
+.ready-sugs li::before{content:"";position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.ready-actions{flex-wrap:wrap;justify-content:flex-start}
+@media (max-width:480px){.ready-actions{flex-direction:column;align-items:stretch}}
+
 /* --- template gallery --- */
 #tplGalleryDlg.tplgal{width:min(960px,96vw)}
 #tplFullDlg.tplfull{width:min(760px,96vw)}
@@ -787,6 +798,19 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
   <div class="row"><button class="btn ghost" id="tplGalleryClose" type="button">Close</button></div>
 </dialog>
 
+<dialog id="readyDlg" class="readydlg">
+  <h3 id="readyTitle">Your resume is ready!</h3>
+  <p class="dsc" id="readySub"></p>
+  <div class="ready-score" id="readyScoreRow"><span class="ready-score-n" id="readyScore"></span><span class="ready-score-of">readiness score — based on your actual saved content, not just that a resume was created</span></div>
+  <ul class="ready-sugs" id="readySuggestions" hidden></ul>
+  <div class="row ready-actions">
+    <button class="btn ghost" id="readyContinue" type="button">Continue editing</button>
+    <button class="btn ghost" id="readyPreviewBtn" type="button">Preview</button>
+    <button class="btn ghost" id="readyDownloadBtn" type="button">Download</button>
+    <button class="btn" id="readyExploreBtn" type="button">Explore premium features</button>
+  </div>
+</dialog>
+
 <dialog id="tplFullDlg" class="tplfull">
   <h3 id="tplFullName"></h3>
   <p class="dsc" id="tplFullMeta"></p>
@@ -1100,6 +1124,17 @@ function readiness(r) {
   ];
   return { checks, score: checks.reduce((a, k) => a + (k.ok ? k.pts : 0), 0), words };
 }
+// Thin wrapper over readiness() for the "resume is ready" confirmation: a plain-English
+// level plus up to `max` concrete, non-blocking suggestions drawn straight from the same
+// checks readiness() already computes. Never requires work experience — "Experience or
+// projects with detail" above already treats projects as equally valid evidence, so a
+// fresher with only projects is never penalized for having no job history.
+function readinessSummary(r, max) {
+  const { checks, score } = readiness(r);
+  const suggestions = checks.filter(c => !c.ok).map(c => c.tip).slice(0, max || 3);
+  const level = score >= 70 ? 'strong' : score >= 40 ? 'good' : 'early';
+  return { score, level, suggestions };
+}
 
 /* ------------------------------ PDF export ------------------------------ */
 function hexRgb(h) { h = String(h || '#000000').replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
@@ -1305,7 +1340,7 @@ async function buildDocx(r, tpl, JSZip, accentHex) {
   zip.file('word/document.xml', doc); zip.file('word/styles.xml', styles); zip.file('word/numbering.xml', numbering);
   return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
 }
-if (false) module.exports = { norm, isEmpty, leaves, readiness, buildPdf, buildDocx, sections, SCHEMA, TEMPLATES, getTemplate, resolveTemplateId, DEFAULT_TEMPLATE_ID, LEGACY_TPL_MAP, MOCK_RESUME };
+if (false) module.exports = { norm, isEmpty, leaves, readiness, readinessSummary, buildPdf, buildDocx, sections, SCHEMA, TEMPLATES, getTemplate, resolveTemplateId, DEFAULT_TEMPLATE_ID, LEGACY_TPL_MAP, MOCK_RESUME };
 
 /* ==================================================================
    ATS ENGINE — deterministic, explainable, evidence-based.
@@ -2536,7 +2571,7 @@ async function serverJson(input, opts) {
   catch (e) { throw e && e.name === 'AbortError' ? { code: 'cancelled' } : { code: 'upstream_error' }; }
   if (res.status === 401) { goLogin(); throw { code: 'unauthorized' }; }
   applyBillingHeaders(res);
-  if (!res.ok) { let j = {}; try { j = await res.json(); } catch (e) {} throw { code: j.code || (res.status === 429 ? 'rate_limited' : 'upstream_error'), message: j.error }; }
+  if (!res.ok) { let j = {}; try { j = await res.json(); } catch (e) {} throw { code: j.code || (res.status === 429 ? 'rate_limited' : 'upstream_error'), message: j.error, feature: j.feature }; }
   const reader = res.body.getReader(), dec = new TextDecoder(); let text = '';
   try {
     for (;;) { const r = await reader.read(); if (r.done) break; text += dec.decode(r.value, { stream: true }); if (opts.onText && text.indexOf('\u0000') < 0) opts.onText({ text, delta: '' }); }
@@ -2548,7 +2583,7 @@ async function serverJson(input, opts) {
 const ai = { json: serverJson }; const imgOK = true, dl = null;
 
 /* ---------- saved to your account on the server ---------- */
-Object.assign(st, { user: null, rid: null, resumes: [], title: 'Untitled resume', titleAuto: true, quota: null, billing: null, plans: null, versions: [], lastFlushBlocked: false, resumeLimitNoticeShown: false });
+Object.assign(st, { user: null, rid: null, resumes: [], title: 'Untitled resume', titleAuto: true, quota: null, billing: null, plans: null, versions: [], lastFlushBlocked: false, resumeLimitNoticeShown: false, readyNoticeShown: false });
 let dirty = false, saveT = null;
 const greetingMsg = () => ({ role: 'assistant', text: GREETING, local: true });
 function setSaveState(t) { const e = $('#saveState'); if (e) e.textContent = t; }
@@ -2593,6 +2628,11 @@ function applyLoaded(rec) {
   st.builder = !!d.builder; st.builderStep = d.builderStep || 'personal';
   st.builderPhase = d.builderPhase || null; st.builderDraft = d.builderDraft || null;
   st.hlBase = null; st.fresh = false; st.improve = null; st.atsImprove = null; st.resumeLimitNoticeShown = false; st.lastFlushBlocked = false; $('#jd').value = st.jd; setSaveState('');
+  // Only fire the "your resume is ready" confirmation the first time THIS resume becomes
+  // ready, not every time it's reopened — a resume that already had content when loaded
+  // is treated as already having shown it; one that's still empty (a fresh placeholder)
+  // will fire once, the moment it first gets real content saved in this session.
+  st.readyNoticeShown = !isEmpty(st.resume);
   if (st.builderPhase === 'form') openBuilderForm();
 }
 async function openResume(id) {
@@ -2702,11 +2742,20 @@ function currentPlanSummary() {
   const renewal = (b.isPaid && b.periodEnd) ? ` Your plan renews/ends on ${new Date(b.periodEnd).toLocaleDateString()}.` : '';
   return `Current plan: ${planName} — ${used} of ${alloc} resume${alloc === 1 ? '' : 's'} created${period}.${renewal} Editing and downloading your existing resumes is never limited.`;
 }
-async function openUpgradeModal(reason) {
+// Plain-English, non-alarmist explanation of what each gated feature actually does and
+// which plan includes it — shown instead of a generic "upgrade to unlock" message
+// whenever the caller knows WHICH feature was blocked (spec: "explain the Pro benefit" /
+// "explain the Career Pro benefit", not just show a paywall).
+const FEATURE_UPGRADE_COPY = {
+  ATS_IMPROVE: 'Improve ATS Score rewrites weak bullets and fixes flagged issues automatically. It’s included in the Pro and Career Pro plans — upgrade to use it.',
+  JOB_MATCH: 'Job Description Match scores your resume against a specific job posting and shows exactly what’s missing. It’s included in the Career Pro plan — upgrade to unlock it.',
+  JOB_TAILOR: 'AI tailoring rewrites your resume to match a specific job description, using only your real experience. It’s included in the Career Pro plan — upgrade to unlock it.'
+};
+async function openUpgradeModal(reason, feature) {
   st.lastUpgradeReason = reason;
   $('#upTitle').textContent = reason === 'locked' ? 'Unlock This Feature' : reason === 'resume_limit' ? "You've reached your resume limit" : reason === 'view' ? 'Your Plan' : 'Your Free Resume Is Used';
   $('#upSub').textContent = reason === 'locked'
-    ? 'That feature is part of a higher ITC Resume plan. Upgrade to unlock it.'
+    ? ((feature && FEATURE_UPGRADE_COPY[feature]) || 'That feature is part of a higher ITC Resume plan. Upgrade to unlock it.')
     : reason === 'resume_limit'
     ? (st.billing && st.billing.isPaid
         ? "You've used all of your resume creations for this billing period. You can keep editing and downloading your existing resumes — upgrade for more, or wait for your next renewal."
@@ -2959,7 +3008,7 @@ async function withBusy(label, fn) {
           : ' Nothing is lost — everything you’ve told me so far is saved. Upgrade and send that last answer again to continue from "' + (BUILDER_STEP_LABELS[st.builderStep] || 'where you left off') + '".';
       }
       st.chat.push({ role: 'assistant', local: true, text: msg });
-      openUpgradeModal(e.code === 'locked_feature' ? 'locked' : 'resume_limit');
+      openUpgradeModal(e.code === 'locked_feature' ? 'locked' : 'resume_limit', e.feature);
     }
     else { if (!e || !e.code) console.error(e); st.chat.push({ role: 'assistant', error: true, local: true, text: (e && e.code) ? errCopy(e) : (e && e.userMsg) || ERR.upstream_error }); }
   } finally { st.busy = false; st.ctl = null; stopTicker(); renderAll(); save(); }
@@ -3430,7 +3479,7 @@ async function improveResume() {
     // a generic toast that doesn't tell the user why or what to do about it.
     // billing headers from this failed request were already applied inside serverJson()
     // before it threw, so st.billing is already current here.
-    if (e && e.code === 'locked_feature') { renderBilling(); applyLockState(); openUpgradeModal('locked'); }
+    if (e && e.code === 'locked_feature') { renderBilling(); applyLockState(); openUpgradeModal('locked', e.feature || 'JOB_TAILOR'); }
     else toast(e && e.code ? errCopy(e) : 'Could not generate improvements. Try again.');
   }
   if (btn) { btn.disabled = false; btn.textContent = 'Improve My Resume'; }
@@ -3482,7 +3531,7 @@ async function improveAts() {
   try {
     const r = await api('GET', '/api/billing/feature/ATS_IMPROVE');
     st.billing = Object.assign({}, st.billing, r.billing); renderBilling(); applyLockState();
-    if (!r.allowed) { atsImproveBusy = false; openUpgradeModal('locked'); return; }
+    if (!r.allowed) { atsImproveBusy = false; openUpgradeModal('locked', 'ATS_IMPROVE'); return; }
   } catch (e) { atsImproveBusy = false; toast('Could not verify your plan. Check your connection and try again.'); return; }
   const startRid = st.rid; // if the user switches resumes while this is in flight, the result below must be discarded, not applied to the wrong resume
   const beforeAts = computeATSCompatibility(st.resume, st.importMeta);
@@ -3543,7 +3592,7 @@ async function improveAts() {
     toast(afterAts.total > beforeAts.total ? ('Proposed changes ready — estimated ' + beforeAts.total + ' → ' + afterAts.total + '. Review below.') : 'Proposed changes ready — review below.');
   } catch (e) {
     $('#atsImproveNote').textContent = '';
-    if (e && e.code === 'locked_feature') { renderBilling(); applyLockState(); openUpgradeModal('locked'); }
+    if (e && e.code === 'locked_feature') { renderBilling(); applyLockState(); openUpgradeModal('locked', e.feature || 'ATS_IMPROVE'); }
     else toast(e && e.code ? errCopy(e) : 'Could not generate improvements. Try again.');
   }
   atsImproveBusy = false;
@@ -3829,7 +3878,31 @@ function renderToolbar() {
   $('#tplPickBtn').disabled = false;
 }
 function meterHtml(score) { const on = Math.round(score / 10); return Array.from({ length: 10 }, (_, i) => `<i class="${i < on ? 'on' : ''}"></i>`).join(''); }
-function renderAll() { renderChat(); renderChips(); renderPaper(); renderToolbar(); renderAts(); updateAvail(); }
+function renderAll() { renderChat(); renderChips(); renderPaper(); renderToolbar(); renderAts(); updateAvail(); maybeShowReadyNotice(); }
+// "Only mark a resume as ready after valid content is saved and the preview can render
+// successfully" — this runs AFTER renderPaper() above has already built #paper's HTML
+// without throwing, in this same renderAll() pass, so a resume that can't actually be
+// rendered never triggers this (an exception in renderPaper would have stopped renderAll
+// before reaching this line at all). Fires at most once per resume per session — see
+// applyLoaded() for how that's reset per resume.
+function maybeShowReadyNotice() {
+  if (st.readyNoticeShown || isEmpty(st.resume) || st.busy) return;
+  const paper = $('#paper'); if (!paper || paper.hidden || !paper.innerHTML) return; // preview must have actually rendered
+  st.readyNoticeShown = true;
+  const { score, level, suggestions } = readinessSummary(st.resume, 3);
+  $('#readyTitle').textContent = level === 'early' ? 'Your resume is saved' : 'Your resume is ready!';
+  $('#readySub').textContent = level === 'strong'
+    ? 'Nicely done — this covers what recruiters and ATS systems look for.'
+    : level === 'good'
+    ? 'A solid start. A few additions below would make it stronger.'
+    : 'Add a bit more detail below and it will be ready to send — nothing here is blocking you from continuing.';
+  $('#readyScore').textContent = score + ' / 100';
+  const sugEl = $('#readySuggestions');
+  if (suggestions.length) { sugEl.hidden = false; sugEl.innerHTML = suggestions.map(s => `<li>${esc(s)}</li>`).join(''); } else sugEl.hidden = true;
+  const d = $('#readyDlg'); if (!d) return;
+  if (d.showModal) { if (!d.open) d.showModal(); } else d.setAttribute('open', '');
+}
+function closeReadyDlg() { const d = $('#readyDlg'); if (d.close) d.close(); else d.removeAttribute('open'); }
 function updateAvail() {
   const b = $('#banner');
   // No banner while the structured composer itself is showing (its own heading already
@@ -3872,6 +3945,10 @@ function wire() {
   $('#pasteBtn').addEventListener('click', openPaste); $('#emPaste').addEventListener('click', openPaste);
   $('#emTell').addEventListener('click', startBuilder);
   $('#emTemplate').addEventListener('click', () => openTplGallery('select'));
+  $('#readyContinue').addEventListener('click', closeReadyDlg);
+  $('#readyPreviewBtn').addEventListener('click', () => { closeReadyDlg(); openPreview(); });
+  $('#readyDownloadBtn').addEventListener('click', () => { closeReadyDlg(); toggleMenu('#dlMenu', '#dlBtn'); });
+  $('#readyExploreBtn').addEventListener('click', () => { closeReadyDlg(); openUpgradeModal('view'); });
   const emCount = $('#emTplCount'); if (emCount) emCount.textContent = TEMPLATES.length;
   $('#tplGalleryClose').addEventListener('click', closeTplGallery);
   $('#tplFullBack').addEventListener('click', () => { closeTplFull(); });
@@ -3936,9 +4013,9 @@ function wire() {
       // Job Match itself is computed locally (deterministic, no AI call), so this
       // live server check is the real gate — never trust the cached pill in st.billing
       // alone, in case a subscription just changed in another tab.
-      try { const r = await api('GET', '/api/billing/feature/JOB_MATCH'); st.billing = Object.assign({}, st.billing, r.billing); renderBilling(); applyLockState(); if (!r.allowed) { openUpgradeModal('locked'); return; } }
+      try { const r = await api('GET', '/api/billing/feature/JOB_MATCH'); st.billing = Object.assign({}, st.billing, r.billing); renderBilling(); applyLockState(); if (!r.allowed) { openUpgradeModal('locked', 'JOB_MATCH'); return; } }
       catch (e) { toast('Could not verify your plan. Check your connection and try again.'); return; }
-      if (st.billing && !st.billing.unlimited && !st.billing.isPaid) { openUpgradeModal('locked'); return; }
+      if (st.billing && !st.billing.unlimited && !st.billing.isPaid) { openUpgradeModal('locked', 'JOB_MATCH'); return; }
       btn.textContent = 'Analyzing…';
       analyzeMatch();
     } finally {
@@ -3948,8 +4025,8 @@ function wire() {
       if (btn.disabled) { btn.disabled = false; if (btn.textContent === 'Checking…' || btn.textContent === 'Analyzing…') btn.textContent = prevLabel; }
     }
   });
-  $('#jdUnlockBtn').addEventListener('click', () => openUpgradeModal('locked'));
-  const atsUnlockBtn = $('#atsUnlockBtn'); if (atsUnlockBtn) atsUnlockBtn.addEventListener('click', () => openUpgradeModal('locked'));
+  $('#jdUnlockBtn').addEventListener('click', () => openUpgradeModal('locked', 'JOB_MATCH'));
+  const atsUnlockBtn = $('#atsUnlockBtn'); if (atsUnlockBtn) atsUnlockBtn.addEventListener('click', () => openUpgradeModal('locked', 'ATS_IMPROVE'));
   $('#upCancel').addEventListener('click', closeUpgradeModal);
   $('#upGrid').addEventListener('click', e => {
     const b = e.target.closest('button[data-plan]'); if (!b) return;
