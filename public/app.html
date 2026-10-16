@@ -215,6 +215,16 @@ button.pill:hover{border-color:var(--accent);color:var(--ink)}
 .dz-txt span{font-size:12.5px;color:var(--muted)}
 .drop-zone .btn{flex:none}
 .alt{margin:16px 2px 0;font-size:13.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:7px 10px;align-items:center}
+/* ---- welcome screen: 4 clearly arranged entry options (upload / paste / template / scratch) ---- */
+.welcome-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%}
+.welcome-card{display:flex;align-items:center;gap:14px;background:var(--panel2);border:1.5px solid var(--line);border-radius:16px;padding:16px 18px;text-align:left;transition:border-color .15s,background .15s}
+.welcome-card:hover{border-color:var(--accent);background:var(--tint)}
+.welcome-card.featured{border-color:var(--accent);background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 10%,transparent),transparent)}
+.welcome-card .dz-ic{flex:none}
+.welcome-card .dz-txt{text-align:left}
+.welcome-grid .drop-zone{align-items:flex-start;flex-direction:column}
+.welcome-grid .drop-zone .btn{margin-top:4px}
+@media (max-width:640px){.welcome-grid{grid-template-columns:1fr}}
 .lnk{background:none;border:0;padding:0;color:var(--ink);font-weight:500;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;font-size:13.5px}
 .lnk:hover{text-decoration-color:var(--accent);color:var(--accent)}
 
@@ -228,6 +238,26 @@ button.pill:hover{border-color:var(--accent);color:var(--ink)}
 .paper .hl{font-size:1.1em;margin:.1em 0 0}
 .paper .ct{font-size:.95em;margin:.15em 0 0}
 .paper.classic .hd{text-align:center}
+/* ---- template style tokens (data-* driven, shared by every template — see TEMPLATES
+   catalogue in the script): one set of rules, any number of templates. ---- */
+.paper[data-font="serif"]{font-family:"Times New Roman",Times,"Liberation Serif",serif}
+.paper[data-font="sans"]{font-family:Arial,Helvetica,"Liberation Sans",sans-serif;font-size:calc(12.6px * var(--s))}
+.paper[data-align="center"] .hd{text-align:center}
+.paper[data-align="left"] .hd{text-align:left}
+.paper[data-density="compact"]{line-height:1.2}
+.paper[data-density="compact"] h2{margin:.6em 0 .22em}
+.paper[data-density="spacious"]{line-height:1.46}
+.paper[data-density="spacious"] h2{margin:1.05em 0 .4em}
+.paper[data-heading="plain"] h2{text-transform:none;border-bottom:0;padding-bottom:0}
+.paper[data-heading="bar"] h2{border-bottom:.18em solid var(--ac)}
+.paper[data-heading="boxed"] h2{border:.07em solid var(--ac);padding:.12em .4em;border-radius:.2em}
+.paper[data-heading="caps-line"] h2{border-bottom:.05em solid var(--ac);box-shadow:0 .16em 0 -.03em var(--ac)}
+.paper[data-divider="0"] .hd{border-bottom:0;padding-bottom:0;margin-bottom:.4em}
+.paper[data-divider="1"] .hd{border-bottom:1px solid var(--line);padding-bottom:.5em;margin-bottom:.6em}
+.paper[data-layout="sidebar"] .pcols{display:grid;grid-template-columns:32% 1fr;gap:0 1.8em;align-items:start}
+.paper[data-layout="sidebar"] .pside{border-right:1px solid var(--line);padding-right:1.4em}
+.paper[data-layout="sidebar"] .pside h2{font-size:1em}
+@media (max-width:819px){.paper[data-layout="sidebar"] .pcols{grid-template-columns:1fr}.paper[data-layout="sidebar"] .pside{border-right:0;padding-right:0}}
 .paper h2{font-size:1.1em;margin:.85em 0 .3em;padding-bottom:.08em;border-bottom:.07em solid var(--ac);text-transform:uppercase;font-weight:700;letter-spacing:.02em;color:var(--ac)}
 .paper p{margin:0}
 .paper .row{display:flex;justify-content:space-between;gap:1em}
@@ -404,6 +434,25 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
 dialog .dsc{margin:0 0 14px;color:var(--muted);font-size:13.5px}
 dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 #dlgFields{margin-top:6px}
+
+/* --- template gallery --- */
+#tplGalleryDlg.tplgal{width:min(960px,96vw)}
+#tplFullDlg.tplfull{width:min(760px,96vw)}
+.tplgal-bar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.tplgal-bar input[type="search"]{flex:1;min-width:160px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:14px}
+.tplgal-bar select{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13.5px}
+.tplgal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;max-height:56vh;overflow:auto;padding:2px}
+.tplcard{border:1px solid var(--line);border-radius:12px;background:var(--panel2);overflow:hidden;cursor:pointer;text-align:left;display:flex;flex-direction:column}
+.tplcard:hover{border-color:var(--accent)}
+.tplcard[aria-current="true"]{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}
+.tplcard-thumb{height:150px;overflow:hidden;background:#fff;position:relative}
+.tplcard-thumb .paper{width:300%;transform:scale(.333);transform-origin:top left;padding:4.32em;box-shadow:none;margin:0;min-height:0}
+.tplcard-meta{padding:8px 10px}
+.tplcard-meta b{display:block;font-size:13px}
+.tplcard-meta span{display:block;font-size:11.5px;color:var(--muted);margin-top:1px}
+.tplgal-empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:30px 0;font-size:13.5px}
+#tplFullBody{max-height:60vh}
+@media (max-width:640px){.tplgal-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));max-height:50vh}.tplcard-thumb{height:120px}}
 
 /* --- billing: trial pill, upgrade modal, locked teaser, version history --- */
 #quota.trial-done{color:var(--bad);border-color:var(--bad)}
@@ -658,10 +707,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 
     <main class="desk">
       <div class="toolbar" id="toolbar">
-        <div class="seg" role="group" aria-label="Template">
-          <button type="button" id="tplClassic" aria-pressed="true">Classic</button>
-          <button type="button" id="tplClean" aria-pressed="false">Clean</button>
-        </div>
+        <button class="pill" id="tplPickBtn" type="button" data-ic="file" title="Browse 100+ resume templates and switch designs"><span id="tplPickLabel">Classic Serif</span></button>
         <div class="sw" id="sw" role="group" aria-label="Accent colour"></div>
         <button class="pill" id="undo" type="button" hidden data-ic="undo"><span>Undo</span></button>
         <button class="pill" id="clearHl" type="button" hidden>Clear highlights</button>
@@ -683,15 +729,28 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
         <section class="hero" id="empty">
           <div class="hero-glow" aria-hidden="true"></div>
           <div class="hero-copy">
-            <span class="kicker">Resume builder that talks your language</span>
-            <h2>Your resume, <em>built by chatting.</em></h2>
-            <p class="lead">Upload your old resume or a photo of it, or just describe your work. Say what to change in Tanglish or English.</p>
-            <div class="drop-zone" id="dropZone">
-              <div class="dz-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 17v2a2 2 0 002 2h10a2 2 0 002-2v-2"/></svg></div>
-              <div class="dz-txt"><b>Drop a file, or</b><span>PDF, Word, or a photo of your resume</span></div>
-              <button class="btn" id="emUpload" type="button">Choose file</button>
+            <span class="kicker">Choose Your Resume. Make It Yours.</span>
+            <h2>Welcome to <em>ITC Resume.</em></h2>
+            <p class="lead">Build your resume your way. Upload your existing resume, paste your content, or choose a template and start fresh.</p>
+            <div class="welcome-grid" id="welcomeGrid">
+              <div class="drop-zone" id="dropZone">
+                <div class="dz-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 17v2a2 2 0 002 2h10a2 2 0 002-2v-2"/></svg></div>
+                <div class="dz-txt"><b>Upload Your Resume</b><span>Upload your existing PDF or DOCX resume and customize it with AI.</span></div>
+                <button class="btn" id="emUpload" type="button">Choose file</button>
+              </div>
+              <button class="welcome-card" id="emPaste" type="button">
+                <span class="dz-ic" aria-hidden="true" data-ic="clipboard"></span>
+                <span class="dz-txt"><b>Paste Your Resume</b><span>Paste your resume text and turn it into an editable professional resume.</span></span>
+              </button>
+              <button class="welcome-card featured" id="emTemplate" type="button">
+                <span class="dz-ic" aria-hidden="true" data-ic="file"></span>
+                <span class="dz-txt"><b>Choose a Template</b><span>Browse <span id="emTplCount">36</span> professional resume designs and customize your favourite.</span></span>
+              </button>
+              <button class="welcome-card" id="emTell" type="button">
+                <span class="dz-ic" aria-hidden="true" data-ic="chat"></span>
+                <span class="dz-txt"><b>Start from Scratch</b><span>Build your resume step by step using a professional template.</span></span>
+              </button>
             </div>
-            <p class="alt"><button class="lnk" id="emPaste" type="button">Paste text instead</button><span aria-hidden="true">·</span><button class="lnk" id="emTell" type="button">Start from scratch</button></p>
           </div>
         </section>
         <article class="paper classic" id="paper" hidden></article>
@@ -713,6 +772,26 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
   <p>Copy everything from your old resume and paste it here. I will organise it into sections.</p>
   <textarea id="pasteTxt" placeholder="Paste text…"></textarea>
   <div class="row"><button class="btn ghost" id="pasteCancel" type="button">Cancel</button><button class="btn" id="pasteGo" type="button">Build my resume</button></div>
+</dialog>
+
+<dialog id="tplGalleryDlg" class="tplgal">
+  <h3>Choose a template</h3>
+  <p class="dsc">Explore <span id="tplCount"></span> professional resume designs and pick your favourite. You can switch anytime.</p>
+  <div class="tplgal-bar">
+    <input type="search" id="tplSearch" placeholder="Search templates by name or category…">
+    <select id="tplFCat"><option value="">All categories</option></select>
+    <select id="tplFLayout"><option value="">Any layout</option><option value="single">Single column</option><option value="sidebar">Two-column / sidebar</option></select>
+    <select id="tplFStyle"><option value="">Any style</option><option value="serif">Serif</option><option value="sans">Sans-serif</option></select>
+  </div>
+  <div class="tplgal-grid" id="tplGrid"></div>
+  <div class="row"><button class="btn ghost" id="tplGalleryClose" type="button">Close</button></div>
+</dialog>
+
+<dialog id="tplFullDlg" class="tplfull">
+  <h3 id="tplFullName"></h3>
+  <p class="dsc" id="tplFullMeta"></p>
+  <div class="prev-body" id="tplFullBody"></div>
+  <div class="row"><button class="btn ghost" id="tplFullBack" type="button">Back to gallery</button><button class="btn" id="tplFullUse" type="button">Use this template</button></div>
 </dialog>
 <dialog id="dlg"><form id="dlgForm"><h3 id="dlgTitle"></h3><p class="dsc" id="dlgDesc"></p><div id="dlgFields"></div><div class="err" id="dlgErr" role="alert" hidden></div><div class="row"><button type="button" class="btn ghost" id="dlgCancel">Cancel</button><button type="submit" class="btn" id="dlgOk">OK</button></div></form></dialog>
 
@@ -799,18 +878,205 @@ function leaves(o, out = []) {
 }
 function fmtDates(e) { const a = e.start, b = e.end; return a && b ? a + ' \u2013 ' + b : (a || b || ''); }
 function contactList(c) { return [c.email, c.phone, c.location, c.linkedin, c.github, c.website].filter(Boolean); }
-function sections(r) {
-  const out = [];
-  if (r.summary) out.push({ h: 'Professional Summary', type: 'para', text: r.summary });
-  if (r.skills.length) out.push({ h: 'Skills', type: 'skills', groups: r.skills });
-  if (r.experience.length) out.push({ h: 'Work Experience', type: 'exp', items: r.experience });
-  if (r.projects.length) out.push({ h: 'Projects', type: 'proj', items: r.projects });
-  if (r.education.length) out.push({ h: 'Education', type: 'edu', items: r.education });
-  if (r.certifications.length) out.push({ h: 'Certifications', type: 'list', items: r.certifications });
-  if (r.achievements.length) out.push({ h: 'Achievements', type: 'list', items: r.achievements });
-  r.extra.forEach(x => out.push({ h: x.heading, type: 'list', items: x.items }));
-  return out;
+// `order` (optional): an array of section keys from the active template's definition
+// (see TEMPLATES below) controlling the sequence the canonical sections are emitted in.
+// Any canonical section not named in `order` — and every "extra" (custom-heading) section,
+// which has no stable key a template can reference — keeps its original relative position
+// appended after the ordered ones. With no `order` this behaves exactly as before, so every
+// existing call site (and every resume saved before templates existed) is unaffected.
+function sections(r, order) {
+  const map = {};
+  if (r.summary) map.summary = { h: 'Professional Summary', type: 'para', text: r.summary };
+  if (r.skills.length) map.skills = { h: 'Skills', type: 'skills', groups: r.skills };
+  if (r.experience.length) map.experience = { h: 'Work Experience', type: 'exp', items: r.experience };
+  if (r.projects.length) map.projects = { h: 'Projects', type: 'proj', items: r.projects };
+  if (r.education.length) map.education = { h: 'Education', type: 'edu', items: r.education };
+  if (r.certifications.length) map.certifications = { h: 'Certifications', type: 'list', items: r.certifications };
+  if (r.achievements.length) map.achievements = { h: 'Achievements', type: 'list', items: r.achievements };
+  r.extra.forEach((x, i) => { map['extra' + i] = { h: x.heading, type: 'list', items: x.items }; });
+  const keys = Object.keys(map);
+  const ord = (Array.isArray(order) ? order : []).filter(k => keys.includes(k));
+  const rest = keys.filter(k => !ord.includes(k));
+  return ord.concat(rest).map(k => Object.assign({ key: k }, map[k]));
 }
+
+/* ============================ TEMPLATE CATALOGUE =============================
+   A real, extensible template-definition system: every design is a plain data
+   record (no per-template hardcoded if/else scattered through the renderer).
+   One template = { id, name, category, layout, order, sidebarKeys?, style, version }.
+     - layout: 'single' (one column) or 'sidebar' (a narrow sidebar column for
+       skills/education/certifications/achievements next to a main column).
+     - order: the canonical section keys (summary/skills/experience/projects/
+       education/certifications/achievements) in THIS template's preferred
+       sequence. Sections the resume doesn't have are simply skipped; sections
+       not named here, and any custom "extra" section, still render — appended
+       at the end — so nothing is ever silently dropped by picking a template.
+     - sidebarKeys: which of `order`'s keys (only ever skills/education/
+       certifications/achievements — never experience/projects/summary, which
+       need full width for bullets) are drawn in the sidebar column, on-screen,
+       for a 'sidebar' layout.
+     - style: the visual tokens that differentiate templates sharing a layout —
+       font (serif/sans), align (header alignment), heading (underline/bar/
+       boxed/caps-line/plain — how section headings are drawn), density
+       (compact/normal/spacious spacing), divider (rule under the header),
+       accent (this template's suggested accent colour; the user's own colour
+       choice, if any, always wins — see accentNow()).
+   PDF/DOCX export always lays every template out as a single, fully-ordered
+   column (see buildPdf/buildDocx): a sidebar template's sidebar sections are
+   folded back into the main flow in the same relative order. This is a
+   deliberate, documented choice, not an oversight — true multi-column text
+   in a PDF/DOCX is exactly the kind of layout ATS parsers and plain-text
+   extraction mangle, so every exported file stays single-column and fully
+   text-selectable regardless of how the on-screen design looks, while still
+   carrying that template's font, heading style, section order and accent.
+   ============================================================================ */
+const TEMPLATES = [
+  { id: 'classic-pro-01', name: 'Classic Serif', category: 'Classic Professional', layout: 'single',
+    order: ['summary', 'experience', 'education', 'skills', 'projects', 'certifications', 'achievements'],
+    style: { font: 'serif', align: 'center', heading: 'underline', density: 'normal', divider: true, accent: '#1A1A1A' }, version: 1 },
+  { id: 'classic-pro-02', name: 'Classic Letterhead', category: 'Classic Professional', layout: 'single',
+    order: ['summary', 'experience', 'education', 'skills', 'projects', 'certifications', 'achievements'],
+    style: { font: 'serif', align: 'center', heading: 'bar', density: 'spacious', divider: true, accent: '#7A1F2B' }, version: 1 },
+  { id: 'modern-pro-01', name: 'Modern Sans', category: 'Modern Professional', layout: 'single',
+    order: ['summary', 'skills', 'experience', 'projects', 'education', 'certifications', 'achievements'],
+    style: { font: 'sans', align: 'left', heading: 'bar', density: 'normal', divider: true, accent: '#1F3A5F' }, version: 1 },
+  { id: 'modern-pro-02', name: 'Modern Sidebar', category: 'Modern Professional', layout: 'sidebar',
+    order: ['summary', 'experience', 'projects', 'achievements', 'skills', 'education', 'certifications'],
+    sidebarKeys: ['skills', 'education', 'certifications', 'achievements'],
+    style: { font: 'sans', align: 'left', heading: 'plain', density: 'normal', divider: false, accent: '#0F766E' }, version: 1 },
+  { id: 'minimal-01', name: 'Minimal Line', category: 'Minimal', layout: 'single',
+    order: ['summary', 'experience', 'projects', 'skills', 'education', 'certifications', 'achievements'],
+    style: { font: 'sans', align: 'left', heading: 'plain', density: 'compact', divider: false, accent: '#111111' }, version: 1 },
+  { id: 'minimal-02', name: 'Minimal Serif', category: 'Minimal', layout: 'single',
+    order: ['summary', 'experience', 'projects', 'skills', 'education', 'certifications', 'achievements'],
+    style: { font: 'serif', align: 'left', heading: 'plain', density: 'spacious', divider: false, accent: '#222222' }, version: 1 },
+  { id: 'corporate-01', name: 'Corporate Bar', category: 'Corporate', layout: 'single',
+    order: ['summary', 'experience', 'education', 'skills', 'projects', 'certifications', 'achievements'],
+    style: { font: 'sans', align: 'center', heading: 'bar', density: 'normal', divider: true, accent: '#0B3D91' }, version: 1 },
+  { id: 'corporate-02', name: 'Corporate Sidebar', category: 'Corporate', layout: 'sidebar',
+    order: ['summary', 'experience', 'projects', 'skills', 'certifications', 'education'],
+    sidebarKeys: ['skills', 'certifications', 'education'],
+    style: { font: 'sans', align: 'left', heading: 'boxed', density: 'normal', divider: false, accent: '#0B3D91' }, version: 1 },
+  { id: 'executive-01', name: 'Executive Serif', category: 'Executive', layout: 'single',
+    order: ['summary', 'experience', 'education', 'skills', 'achievements', 'projects', 'certifications'],
+    style: { font: 'serif', align: 'center', heading: 'caps-line', density: 'spacious', divider: true, accent: '#111111' }, version: 1 },
+  { id: 'executive-02', name: 'Executive Bold', category: 'Executive', layout: 'single',
+    order: ['summary', 'experience', 'achievements', 'education', 'skills', 'projects', 'certifications'],
+    style: { font: 'serif', align: 'left', heading: 'bar', density: 'normal', divider: true, accent: '#5C3B1E' }, version: 1 },
+  { id: 'data-analyst-01', name: 'Data Analyst Clean', category: 'Data Analyst', layout: 'single',
+    order: ['summary', 'skills', 'experience', 'projects', 'education', 'certifications'],
+    style: { font: 'sans', align: 'left', heading: 'underline', density: 'normal', divider: true, accent: '#2563EB' }, version: 1 },
+  { id: 'data-analyst-02', name: 'Data Analyst Sidebar', category: 'Data Analyst', layout: 'sidebar',
+    order: ['summary', 'experience', 'projects', 'skills', 'certifications', 'education'],
+    sidebarKeys: ['skills', 'certifications', 'education'],
+    style: { font: 'sans', align: 'left', heading: 'plain', density: 'normal', divider: false, accent: '#2563EB' }, version: 1 },
+  { id: 'biz-analyst-01', name: 'Business Analyst Pro', category: 'Business Analyst', layout: 'single',
+    order: ['summary', 'experience', 'skills', 'projects', 'education', 'certifications'],
+    style: { font: 'sans', align: 'center', heading: 'bar', density: 'normal', divider: true, accent: '#0F4C81' }, version: 1 },
+  { id: 'biz-analyst-02', name: 'Business Analyst Sidebar', category: 'Business Analyst', layout: 'sidebar',
+    order: ['summary', 'experience', 'projects', 'skills', 'education', 'certifications'],
+    sidebarKeys: ['skills', 'education', 'certifications'],
+    style: { font: 'serif', align: 'left', heading: 'boxed', density: 'normal', divider: false, accent: '#0F4C81' }, version: 1 },
+  { id: 'dev-01', name: 'Developer Clean', category: 'Software Developer', layout: 'single',
+    order: ['summary', 'skills', 'projects', 'experience', 'education', 'certifications'],
+    style: { font: 'sans', align: 'left', heading: 'plain', density: 'compact', divider: false, accent: '#16A34A' }, version: 1 },
+  { id: 'dev-02', name: 'Developer Sidebar', category: 'Software Developer', layout: 'sidebar',
+    order: ['summary', 'projects', 'experience', 'skills', 'certifications', 'education'],
+    sidebarKeys: ['skills', 'certifications', 'education'],
+    style: { font: 'sans', align: 'left', heading: 'underline', density: 'compact', divider: true, accent: '#16A34A' }, version: 1 },
+  { id: 'ml-01', name: 'AI/ML Technical', category: 'AI/ML Engineer', layout: 'single',
+    order: ['summary', 'skills', 'projects', 'experience', 'education', 'certifications'],
+    style: { font: 'sans', align: 'left', heading: 'bar', density: 'compact', divider: true, accent: '#7C3AED' }, version: 1 },
+  { id: 'ml-02', name: 'AI/ML Sidebar', category: 'AI/ML Engineer', layout: 'sidebar',
+    order: ['summary', 'projects', 'experience', 'skills', 'certifications', 'education'],
+    sidebarKeys: ['skills', 'certifications', 'education'],
+    style: { font: 'sans', align: 'left', heading: 'plain', density: 'normal', divider: false, accent: '#7C3AED' }, version: 1 },
+  { id: 'tech-01', name: 'Technology Modern', category: 'Technology', layout: 'single',
+    order: ['summary', 'skills', 'experience', 'projects', 'education', 'certifications'],
+    style: { font: 'sans', align: 'left', heading: 'underline', density: 'normal', divider: true, accent: '#0EA5E9' }, version: 1 },
+  { id: 'tech-02', name: 'Technology Sidebar', category: 'Technology', layout: 'sidebar',
+    order: ['summary', 'experience', 'projects', 'skills', 'certifications', 'education'],
+    sidebarKeys: ['skills', 'certifications', 'education'],
+    style: { font: 'sans', align: 'left', heading: 'boxed', density: 'normal', divider: false, accent: '#0EA5E9' }, version: 1 },
+  { id: 'finance-01', name: 'Finance Classic', category: 'Finance', layout: 'single',
+    order: ['summary', 'experience', 'education', 'skills', 'certifications', 'achievements'],
+    style: { font: 'serif', align: 'center', heading: 'underline', density: 'normal', divider: true, accent: '#0B3D2E' }, version: 1 },
+  { id: 'finance-02', name: 'Finance Corporate', category: 'Finance', layout: 'single',
+    order: ['summary', 'experience', 'skills', 'education', 'certifications', 'achievements'],
+    style: { font: 'sans', align: 'left', heading: 'bar', density: 'normal', divider: true, accent: '#14532D' }, version: 1 },
+  { id: 'marketing-01', name: 'Marketing Bold', category: 'Marketing', layout: 'single',
+    order: ['summary', 'experience', 'projects', 'skills', 'education', 'certifications', 'achievements'],
+    style: { font: 'sans', align: 'center', heading: 'boxed', density: 'normal', divider: true, accent: '#DB2777' }, version: 1 },
+  { id: 'marketing-02', name: 'Marketing Sidebar', category: 'Marketing', layout: 'sidebar',
+    order: ['summary', 'experience', 'projects', 'achievements', 'skills', 'certifications', 'education'],
+    sidebarKeys: ['skills', 'certifications', 'education'],
+    style: { font: 'sans', align: 'left', heading: 'plain', density: 'normal', divider: false, accent: '#DB2777' }, version: 1 },
+  { id: 'ops-01', name: 'Operations Pro', category: 'Operations and Supply Chain', layout: 'single',
+    order: ['summary', 'experience', 'skills', 'projects', 'education', 'certifications'],
+    style: { font: 'sans', align: 'left', heading: 'bar', density: 'normal', divider: true, accent: '#92400E' }, version: 1 },
+  { id: 'ops-02', name: 'Operations Sidebar', category: 'Operations and Supply Chain', layout: 'sidebar',
+    order: ['summary', 'experience', 'projects', 'skills', 'certifications', 'education'],
+    sidebarKeys: ['skills', 'certifications', 'education'],
+    style: { font: 'sans', align: 'left', heading: 'boxed', density: 'normal', divider: false, accent: '#92400E' }, version: 1 },
+  { id: 'fresher-01', name: 'Fresher Starter', category: 'Fresher', layout: 'single',
+    order: ['summary', 'education', 'skills', 'projects', 'experience', 'certifications', 'achievements'],
+    style: { font: 'sans', align: 'center', heading: 'underline', density: 'spacious', divider: true, accent: '#2563EB' }, version: 1 },
+  { id: 'fresher-02', name: 'Fresher Sidebar', category: 'Fresher', layout: 'sidebar',
+    order: ['summary', 'projects', 'experience', 'achievements', 'skills', 'education', 'certifications'],
+    sidebarKeys: ['skills', 'education', 'certifications'],
+    style: { font: 'sans', align: 'left', heading: 'plain', density: 'normal', divider: false, accent: '#2563EB' }, version: 1 },
+  { id: 'graduate-01', name: 'Graduate Clean', category: 'Graduate', layout: 'single',
+    order: ['summary', 'education', 'projects', 'skills', 'experience', 'certifications'],
+    style: { font: 'serif', align: 'center', heading: 'plain', density: 'normal', divider: true, accent: '#1F3A5F' }, version: 1 },
+  { id: 'graduate-02', name: 'Graduate Modern', category: 'Graduate', layout: 'single',
+    order: ['summary', 'education', 'skills', 'projects', 'experience', 'certifications'],
+    style: { font: 'sans', align: 'left', heading: 'bar', density: 'normal', divider: true, accent: '#1F3A5F' }, version: 1 },
+  { id: 'intern-01', name: 'Internship Ready', category: 'Internship', layout: 'single',
+    order: ['summary', 'education', 'skills', 'projects', 'experience', 'certifications'],
+    style: { font: 'sans', align: 'center', heading: 'underline', density: 'normal', divider: true, accent: '#0F766E' }, version: 1 },
+  { id: 'intern-02', name: 'Internship Sidebar', category: 'Internship', layout: 'sidebar',
+    order: ['summary', 'projects', 'experience', 'skills', 'education', 'certifications'],
+    sidebarKeys: ['skills', 'education', 'certifications'],
+    style: { font: 'sans', align: 'left', heading: 'plain', density: 'normal', divider: false, accent: '#0F766E' }, version: 1 },
+  { id: 'experienced-01', name: 'Experienced Bar', category: 'Experienced Professional', layout: 'single',
+    order: ['summary', 'experience', 'projects', 'skills', 'education', 'certifications', 'achievements'],
+    style: { font: 'sans', align: 'left', heading: 'bar', density: 'normal', divider: true, accent: '#111827' }, version: 1 },
+  { id: 'experienced-02', name: 'Experienced Sidebar', category: 'Experienced Professional', layout: 'sidebar',
+    order: ['summary', 'experience', 'projects', 'achievements', 'skills', 'certifications', 'education'],
+    sidebarKeys: ['skills', 'certifications', 'education'],
+    style: { font: 'serif', align: 'left', heading: 'boxed', density: 'normal', divider: false, accent: '#111827' }, version: 1 },
+  { id: 'academic-01', name: 'Academic Serif', category: 'Academic', layout: 'single',
+    order: ['summary', 'education', 'certifications', 'experience', 'projects', 'skills', 'achievements'],
+    style: { font: 'serif', align: 'center', heading: 'underline', density: 'spacious', divider: true, accent: '#111111' }, version: 1 },
+  { id: 'academic-02', name: 'Academic Formal', category: 'Academic', layout: 'single',
+    order: ['education', 'summary', 'certifications', 'experience', 'projects', 'skills'],
+    style: { font: 'serif', align: 'left', heading: 'plain', density: 'normal', divider: true, accent: '#1A1A1A' }, version: 1 },
+];
+const DEFAULT_TEMPLATE_ID = 'classic-pro-01';
+const LEGACY_TPL_MAP = { classic: 'classic-pro-01', clean: 'modern-pro-01' };
+const TEMPLATES_BY_ID = TEMPLATES.reduce((m, t) => (m[t.id] = t, m), {});
+function getTemplate(id) { return TEMPLATES_BY_ID[id] || TEMPLATES_BY_ID[LEGACY_TPL_MAP[id]] || TEMPLATES_BY_ID[DEFAULT_TEMPLATE_ID]; }
+// Resolve ANY client-supplied value to a template id we actually know about — the single
+// place both the client and (mirrored in lib/templates.js) the server trust for this field.
+function resolveTemplateId(id) {
+  if (typeof id === 'string' && TEMPLATES_BY_ID[id]) return id;
+  if (typeof id === 'string' && LEGACY_TPL_MAP[id]) return LEGACY_TPL_MAP[id];
+  return DEFAULT_TEMPLATE_ID;
+}
+const TEMPLATE_CATEGORIES = [...new Set(TEMPLATES.map(t => t.category))];
+// Small placeholder resume used ONLY to render real, live template thumbnails/previews in
+// the gallery before the user has any content of their own — never saved, never shown
+// anywhere else. Every thumbnail is this same data run through the real renderer under a
+// different template, so what the user clicks is exactly what they get, not a screenshot.
+const MOCK_RESUME = norm({
+  name: 'Jordan Lee', headline: 'Senior Product Analyst', contact: { email: 'jordan@email.com', phone: '+1 555 0100', location: 'Austin, TX' },
+  summary: 'Product analyst with 5+ years turning data into decisions across growth and retention teams.',
+  skills: [{ group: 'Tools', items: ['SQL', 'Python', 'Tableau', 'Excel'] }],
+  experience: [{ title: 'Senior Analyst', company: 'Northwind Co', location: 'Austin, TX', start: '2022', end: 'Present', bullets: ['Led a pricing analysis that lifted margin by 8%', 'Built the team’s core retention dashboard'] }],
+  projects: [{ name: 'Churn Model', tech: 'Python, scikit-learn', bullets: ['Predicted at-risk accounts with 82% precision'] }],
+  education: [{ degree: 'B.S. Statistics', school: 'State University', year: '2019' }],
+  certifications: ['Google Data Analytics'], achievements: ['Top performer, 2023']
+});
 function hash(s) { let h = 5381; s = String(s); for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h; }
 
 function readiness(r) {
@@ -838,12 +1104,14 @@ function readiness(r) {
 /* ------------------------------ PDF export ------------------------------ */
 function hexRgb(h) { h = String(h || '#000000').replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
 function buildPdf(r, tpl, jsPDF, accentHex) {
+  const t = getTemplate(tpl), sty = t.style;
   const doc = new jsPDF({ unit: 'pt', format: 'a4', compress: true });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
-  const M = 43.2, CW = W - 2 * M, LH = 1.32;
+  const densityScale = sty.density === 'compact' ? 0.86 : sty.density === 'spacious' ? 1.16 : 1;
+  const M = 43.2 * (sty.density === 'compact' ? 0.9 : sty.density === 'spacious' ? 1.1 : 1), CW = W - 2 * M, LH = 1.32 * densityScale;
   const TOP = M, BOTTOM = H - M, USABLE = BOTTOM - TOP;
-  const fam = tpl === 'clean' ? 'helvetica' : 'times';
-  const accent = hexRgb(accentHex || (tpl === 'clean' ? '#1F3A5F' : '#000000'));
+  const fam = sty.font === 'sans' ? 'helvetica' : 'times';
+  const accent = hexRgb(accentHex || sty.accent || '#000000');
   let y = TOP, stripped = 0;
   const safe = s => {
     let removed = 0;
@@ -882,8 +1150,17 @@ function buildPdf(r, tpl, jsPDF, accentHex) {
   }
   function drawHeading(h) {
     if (y > TOP) y += 8;
-    setF(11, 'bold', accent); doc.text(safe(h).toUpperCase(), M, y + 11 * 0.95);
-    y += 11 * LH; doc.setDrawColor.apply(doc, accent); doc.setLineWidth(0.7); doc.line(M, y - 1, W - M, y - 1); y += 4;
+    const txt = sty.heading === 'plain' ? String(h) : safe(h).toUpperCase();
+    setF(11, 'bold', accent); doc.text(safe(txt), M, y + 11 * 0.95);
+    y += 11 * LH;
+    if (sty.heading === 'underline' || sty.heading === 'bar' || sty.heading === 'caps-line') {
+      doc.setDrawColor.apply(doc, accent); doc.setLineWidth(sty.heading === 'bar' ? 1.6 : sty.heading === 'caps-line' ? 0.9 : 0.7);
+      doc.line(M, y - 1, W - M, y - 1);
+      if (sty.heading === 'caps-line') { doc.setLineWidth(0.4); doc.line(M, y + 1.5, W - M, y + 1.5); }
+    } else if (sty.heading === 'boxed') {
+      doc.setDrawColor.apply(doc, accent); doc.setLineWidth(0.8); doc.rect(M, y - 11 * LH + 1, CW, 11 * LH - 1);
+    }
+    y += 4;
   }
 
   /* ---------- measurement helpers ---------- */
@@ -893,8 +1170,11 @@ function buildPdf(r, tpl, jsPDF, accentHex) {
   // heading measured with the pre-gap included (conservative so a section never overflows)
   const HEADING_H = 8 + 11 * LH + 5;
 
-  /* ---------- build a keep-together plan: sections -> heading + atomic entries ---------- */
-  const secs = sections(r);
+  /* ---------- build a keep-together plan: sections -> heading + atomic entries ----------
+     Always a single, fully-ordered column (per this template's `order`) — see the
+     TEMPLATE CATALOGUE comment above for why sidebar templates fold back to one column
+     here instead of attempting true multi-column text in the exported file. */
+  const secs = sections(r, t.order);
   const plan = secs.map(s => {
     const entries = [];
     const push = (height, draw) => entries.push({ height, draw });
@@ -939,9 +1219,9 @@ function buildPdf(r, tpl, jsPDF, accentHex) {
   }
 
   /* ---------- header block (always page 1 top, never split) ---------- */
-  const center = tpl !== 'clean', hx = center ? 'center' : 'left';
+  const center = sty.align === 'center', hx = center ? 'center' : 'left';
   if (r.name) drawLines(r.name, { size: 20, style: 'bold', align: hx, color: accent });
-  if (r.headline) drawLines(r.headline, { size: 11, align: hx, color: tpl === 'clean' ? [60, 60, 60] : [0, 0, 0] });
+  if (r.headline) drawLines(r.headline, { size: 11, align: hx, color: sty.font === 'sans' ? [60, 60, 60] : [0, 0, 0] });
   const cl = contactList(r.contact); if (cl.length) drawLines(cl.join('  |  '), { size: 9.5, align: hx });
 
   /* ---------- content-aware pagination ---------- */
@@ -989,10 +1269,12 @@ function wPara(inner, o) {
   return '<w:p>' + (p ? '<w:pPr>' + p + '</w:pPr>' : '') + inner + '</w:p>';
 }
 async function buildDocx(r, tpl, JSZip, accentHex) {
+  const t = getTemplate(tpl), sty = t.style;
   const NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
-  const font = tpl === 'clean' ? 'Calibri' : 'Times New Roman';
-  const accent = String(accentHex || (tpl === 'clean' ? '#1F3A5F' : '#000000')).replace('#', '').toUpperCase();
-  const CWT = 10178, center = tpl !== 'clean';
+  const font = sty.font === 'sans' ? 'Calibri' : 'Times New Roman';
+  const accent = String(accentHex || sty.accent || '#000000').replace('#', '').toUpperCase();
+  const CWT = 10178, center = sty.align === 'center';
+  const headingBorder = sty.heading === 'plain' ? '' : '<w:pBdr><w:bottom w:val="single" w:sz="' + (sty.heading === 'bar' ? 10 : 6) + '" w:space="1" w:color="' + accent + '"/></w:pBdr>';
   const body = [];
   if (r.name) body.push(wPara(wRun(r.name), { style: 'Title', align: center ? 'center' : null }));
   if (r.headline) body.push(wPara(wRun(r.headline, { sz: 22 }), { align: center ? 'center' : null, after: 20 }));
@@ -1000,8 +1282,8 @@ async function buildDocx(r, tpl, JSZip, accentHex) {
   const rowP = (l, rt, extra) => wPara(wRun(l, { b: true, sz: 21 }) + (rt ? '<w:r><w:tab/></w:r>' + wRun(rt, { sz: 21 }) : ''), { tabRight: CWT, keepNext: true, before: extra ? 60 : 0 });
   const italic = t => wPara(wRun(t, { i: true }), { keepNext: true });
   const bl = list => list.forEach(b => body.push(wPara(wRun(b), { style: 'ListParagraph', bullet: true })));
-  sections(r).forEach(s => {
-    body.push(wPara(wRun(s.h), { style: 'Heading1' }));
+  sections(r, t.order).forEach(s => {
+    body.push(wPara(wRun(sty.heading === 'plain' ? s.h : s.h.toUpperCase()), { style: 'Heading1' }));
     if (s.type === 'para') body.push(wPara(wRun(s.text)));
     else if (s.type === 'skills') s.groups.forEach(g => body.push(wPara((g.group ? wRun(g.group + ': ', { b: true }) : '') + wRun(g.items.join(', ')))));
     else if (s.type === 'exp') s.items.forEach((e, i) => { body.push(rowP(e.title || e.company, fmtDates(e), i)); if (e.title && (e.company || e.location)) body.push(italic([e.company, e.location].filter(Boolean).join(', '))); bl(e.bullets); });
@@ -1013,7 +1295,7 @@ async function buildDocx(r, tpl, JSZip, accentHex) {
   const styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles ' + NS + '><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="' + font + '" w:hAnsi="' + font + '" w:eastAsia="' + font + '" w:cs="' + font + '"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="en-US"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="264" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>'
     + '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>'
     + '<w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:spacing w:after="40"/></w:pPr><w:rPr><w:b/><w:color w:val="' + accent + '"/><w:sz w:val="40"/><w:szCs w:val="40"/></w:rPr></w:style>'
-    + '<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="' + accent + '"/></w:pBdr><w:spacing w:before="200" w:after="80"/></w:pPr><w:rPr><w:b/><w:caps/><w:color w:val="' + accent + '"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:style>'
+    + '<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:qFormat/><w:pPr><w:keepNext/>' + headingBorder + '<w:spacing w:before="200" w:after="80"/></w:pPr><w:rPr><w:b/><w:color w:val="' + accent + '"/><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:style>'
     + '<w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/><w:qFormat/><w:pPr><w:ind w:left="360" w:hanging="240"/></w:pPr></w:style></w:styles>';
   const numbering = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering ' + NS + '><w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="singleLevel"/><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="\u2022"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="360" w:hanging="240"/></w:pPr></w:lvl></w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num></w:numbering>';
   const zip = new JSZip();
@@ -1023,7 +1305,7 @@ async function buildDocx(r, tpl, JSZip, accentHex) {
   zip.file('word/document.xml', doc); zip.file('word/styles.xml', styles); zip.file('word/numbering.xml', numbering);
   return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
 }
-if (false) module.exports = { norm, isEmpty, leaves, readiness, buildPdf, buildDocx, sections, SCHEMA };
+if (false) module.exports = { norm, isEmpty, leaves, readiness, buildPdf, buildDocx, sections, SCHEMA, TEMPLATES, getTemplate, resolveTemplateId, DEFAULT_TEMPLATE_ID, LEGACY_TPL_MAP, MOCK_RESUME };
 
 /* ==================================================================
    ATS ENGINE — deterministic, explainable, evidence-based.
@@ -2212,8 +2494,8 @@ const SAMPLE = { name: 'Priya Sharma', headline: 'Data Analyst', contact: { emai
 const ACCENTS = [{ n: 'Ink', v: '#111111' }, { n: 'Navy', v: '#1F3A5F' }, { n: 'Teal', v: '#0F6B63' }, { n: 'Maroon', v: '#7A1F3D' }, { n: 'Indigo', v: '#3B3F99' }];
 const PH = ['Python skill add pannu…', 'Summary-a innum better-a maathu…', 'Enga project-a resume-la add pannunga…', 'Make my bullets sound stronger…', 'Company name maathi, dates fix pannu…'];
 
-const st = { resume: norm({}), prev: [], chat: [], jd: '', tpl: 'classic', accent: null, ats: null, improve: null, atsImprove: null, importMeta: null, view: 'chat', busy: false, ctl: null, hlBase: null, fresh: false, liveText: '', liveStreaming: false, liveStart: 0, timer: null, availChecked: false, sidebarQuery: '', builder: false, builderStep: 'personal', builderPhase: null, builderDraft: null };
-const accentNow = () => st.accent || (st.tpl === 'clean' ? '#1F3A5F' : '#111111');
+const st = { resume: norm({}), prev: [], chat: [], jd: '', tpl: DEFAULT_TEMPLATE_ID, accent: null, ats: null, improve: null, atsImprove: null, importMeta: null, view: 'chat', busy: false, ctl: null, hlBase: null, fresh: false, liveText: '', liveStreaming: false, liveStart: 0, timer: null, availChecked: false, sidebarQuery: '', builder: false, builderStep: 'personal', builderPhase: null, builderDraft: null };
+const accentNow = () => st.accent || getTemplate(st.tpl).style.accent;
 
 /* ---------- talking to this server ---------- */
 function parseJsonTolerant(t) {
@@ -2307,7 +2589,7 @@ function applyLoaded(rec) {
   const d = rec.data || {};
   st.rid = rec.id; st.title = rec.title || 'Untitled resume'; st.titleAuto = d.titleAuto !== false;
   st.resume = norm(d.resume); st.prev = (d.prev || []).map(norm); st.versions = Array.isArray(d.versions) ? d.versions : []; st.chat = Array.isArray(d.chat) && d.chat.length ? d.chat : [greetingMsg()];
-  st.jd = d.jd || ''; st.tpl = d.tpl === 'clean' ? 'clean' : 'classic'; st.accent = ACCENTS.some(a => a.v === d.accent) ? d.accent : null; st.ats = d.ats || null; st.importMeta = d.importMeta || null;
+  st.jd = d.jd || ''; st.tpl = resolveTemplateId(d.tpl); st.accent = ACCENTS.some(a => a.v === d.accent) ? d.accent : null; st.ats = d.ats || null; st.importMeta = d.importMeta || null;
   st.builder = !!d.builder; st.builderStep = d.builderStep || 'personal';
   st.builderPhase = d.builderPhase || null; st.builderDraft = d.builderDraft || null;
   st.hlBase = null; st.fresh = false; st.improve = null; st.atsImprove = null; st.resumeLimitNoticeShown = false; st.lastFlushBlocked = false; $('#jd').value = st.jd; setSaveState('');
@@ -2734,11 +3016,25 @@ function localAccentMatch(text) {
   for (const a of ACCENTS) if (t.includes(a.n.toLowerCase())) return a;
   return null;
 }
+// Matches a chat request like "change my template to Modern Sans" or "use the Data
+// Analyst Clean template" against the real TEMPLATES catalogue — never a fixed 2-value
+// enum — so every hand-authored template is reachable from chat, not just two of them.
+// Falls back to a couple of common generic words for compatibility with how people used
+// to ask this before the gallery existed.
 function localTemplateMatch(text) {
   const t = text.toLowerCase();
-  if (!/\b(template|format|layout)\b/.test(t)) return null;
-  if (/\b(modern|clean|professional)\b/.test(t)) return 'clean';
-  if (/\b(classic|traditional)\b/.test(t)) return 'classic';
+  if (!/\b(template|format|layout|design)\b/.test(t)) return null;
+  let best = null, bestLen = 0;
+  TEMPLATES.forEach(tpl => {
+    [tpl.name, tpl.category].forEach(label => {
+      const l = label.toLowerCase();
+      if (t.includes(l) && l.length > bestLen) { best = tpl.id; bestLen = l.length; }
+    });
+  });
+  if (best) return best;
+  if (/\b(modern|clean|sans|minimal)\b/.test(t)) return 'modern-pro-01';
+  if (/\b(classic|traditional|serif)\b/.test(t)) return 'classic-pro-01';
+  if (/\bsidebar|two[- ]?column\b/.test(t)) return 'modern-pro-02';
   return null;
 }
 // "undo that" / "revert" / "put it back" typed in chat uses the same local Undo
@@ -2773,8 +3069,9 @@ async function send(text) {
   const tplHit = localTemplateMatch(text);
   if (tplHit && tplHit !== st.tpl) {
     st.chat.push({ role: 'user', text }); $('#inp').value = ''; autosize(); setView('chat');
-    st.tpl = tplHit; st.fresh = false; snapshotVersion('Changed to ' + (tplHit === 'clean' ? 'Modern' : 'Classic') + ' template');
-    st.chat.push({ role: 'assistant', text: 'Done. I changed your resume to the ' + (tplHit === 'clean' ? 'modern professional' : 'classic') + ' format.' });
+    const tn = getTemplate(tplHit).name;
+    st.tpl = tplHit; st.fresh = false; snapshotVersion('Changed to ' + tn + ' template');
+    st.chat.push({ role: 'assistant', text: 'Done. I changed your resume to the ' + tn + ' template. You can browse the full template gallery anytime from the template button above the preview.' });
     renderAll(); save(); return;
   }
   if (!ai) { toast('AI editing is not available right now.'); return; }
@@ -3268,7 +3565,7 @@ function atsExtractText(r) {
   const addField = (label, v) => { if (v) lines.push(label + ': ' + v); };
   addField('Email', c.email); addField('Phone', c.phone); addField('Location', c.location);
   addField('LinkedIn', c.linkedin); addField('GitHub', c.github); addField('Website', c.website);
-  sections(r).forEach(s => {
+  sections(r, getTemplate(st.tpl).order).forEach(s => {
     lines.push('', s.h.toUpperCase());
     if (s.type === 'para') { if (s.text) lines.push(s.text); }
     else if (s.type === 'skills') s.groups.forEach(g => { if (g.items.length) lines.push((g.group ? g.group + ': ' : '') + g.items.join(', ')); });
@@ -3373,7 +3670,8 @@ function renderPreviewBody(mode) {
       const liveSrc = $('#paper');
       if (!liveSrc || !liveSrc.innerHTML) { body.innerHTML = '<p class="prev-empty">Add your resume first — there is nothing to preview yet.</p>'; return; }
       const wrap = document.createElement('div');
-      wrap.className = 'paper ' + st.tpl; wrap.style.setProperty('--ac', accentNow());
+      wrap.className = liveSrc.className; Object.assign(wrap.dataset, liveSrc.dataset);
+      wrap.style.setProperty('--ac', accentNow());
       wrap.innerHTML = liveSrc.innerHTML;
       body.innerHTML = ''; body.appendChild(wrap);
     }
@@ -3390,30 +3688,126 @@ function openPreview() {
   if (d.showModal) d.showModal(); else d.setAttribute('open', '');
 }
 
+/* ---------- template gallery ----------
+   One gallery, reached from three places: the toolbar's template button while editing
+   (mode 'switch' — changes the CURRENT resume's template), and the welcome screen's
+   "Choose a Template" option (mode 'select' — picks a template before any content
+   exists; browsing/selecting here never creates a resume or touches the resume-creation
+   limit, see applyTemplateChoice). Search/filtering runs over the real TEMPLATES
+   catalogue — there is nothing here that isn't backed by an actual renderable design. */
+function tplMatches(t, q, cat, layout, style) {
+  if (cat && t.category !== cat) return false;
+  if (layout && t.layout !== layout) return false;
+  if (style && t.style.font !== style) return false;
+  if (q) { const hay = (t.name + ' ' + t.category).toLowerCase(); if (!hay.includes(q.toLowerCase())) return false; }
+  return true;
+}
+function tplCardThumb(t) {
+  const wrap = document.createElement('div'); wrap.className = 'paper'; applyPaperDataset(wrap, t);
+  wrap.style.setProperty('--ac', t.style.accent); wrap.innerHTML = paperInnerHtml(MOCK_RESUME, t);
+  return wrap;
+}
+function renderTplGallery() {
+  const catSel = $('#tplFCat');
+  if (!catSel.options.length || catSel.options.length === 1) catSel.innerHTML = '<option value="">All categories</option>' + TEMPLATE_CATEGORIES.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  $('#tplCount').textContent = TEMPLATES.length;
+  const q = $('#tplSearch').value.trim(), cat = $('#tplFCat').value, layout = $('#tplFLayout').value, style = $('#tplFStyle').value;
+  const list = TEMPLATES.filter(t => tplMatches(t, q, cat, layout, style));
+  const grid = $('#tplGrid'); grid.innerHTML = '';
+  if (!list.length) { grid.innerHTML = '<div class="tplgal-empty">No templates match those filters. Try clearing search or a filter.</div>'; return; }
+  list.forEach(t => {
+    const card = document.createElement('button'); card.type = 'button'; card.className = 'tplcard'; card.setAttribute('aria-current', String(t.id === st.tpl));
+    const thumbBox = document.createElement('div'); thumbBox.className = 'tplcard-thumb'; thumbBox.appendChild(tplCardThumb(t));
+    card.appendChild(thumbBox);
+    const meta = document.createElement('div'); meta.className = 'tplcard-meta';
+    meta.innerHTML = `<b>${esc(t.name)}</b><span>${esc(t.category)} · ${t.layout === 'sidebar' ? 'Two-column' : 'Single column'}</span>`;
+    card.appendChild(meta);
+    card.addEventListener('click', () => openTplFull(t.id));
+    grid.appendChild(card);
+  });
+}
+function openTplGallery(mode) {
+  st.tplGalleryMode = mode;
+  renderTplGallery();
+  const d = $('#tplGalleryDlg'); if (d.showModal) d.showModal(); else d.setAttribute('open', '');
+}
+function closeTplGallery() { const d = $('#tplGalleryDlg'); if (d.close) d.close(); else d.removeAttribute('open'); }
+function openTplFull(id) {
+  const t = getTemplate(id); st.tplFullId = t.id;
+  $('#tplFullName').textContent = t.name;
+  $('#tplFullMeta').textContent = t.category + ' · ' + (t.layout === 'sidebar' ? 'Two-column / sidebar layout' : 'Single column layout') + ' · ' + (t.style.font === 'serif' ? 'Serif' : 'Sans-serif') + ' type';
+  const body = $('#tplFullBody'); body.innerHTML = '';
+  const previewResume = isEmpty(st.resume) ? MOCK_RESUME : st.resume;
+  const wrap = document.createElement('div'); wrap.className = 'paper'; applyPaperDataset(wrap, t);
+  wrap.style.setProperty('--ac', accentNow() || t.style.accent); wrap.innerHTML = paperInnerHtml(previewResume, t);
+  body.appendChild(wrap);
+  $('#tplFullUse').textContent = t.id === st.tpl ? 'Currently selected' : 'Use this template';
+  const d = $('#tplFullDlg'); if (d.showModal) d.showModal(); else d.setAttribute('open', '');
+}
+function closeTplFull() { const d = $('#tplFullDlg'); if (d.close) d.close(); else d.removeAttribute('open'); }
+// Switching or picking a template NEVER creates a resume and NEVER touches the
+// resume-creation limit — it only ever changes which design an existing (or not-yet-
+// started) resume uses, which is exactly what billing.resumeContentNonEmpty() already
+// ignores (tpl/accent alone never count as "content"), confirmed by the regression suite.
+function applyTemplateChoice(id) {
+  const t = getTemplate(id); const prevId = st.tpl;
+  closeTplFull(); closeTplGallery();
+  if (t.id === prevId) return;
+  st.tpl = t.id; st.fresh = false;
+  if (!isEmpty(st.resume)) { snapshotVersion('Changed to ' + t.name + ' template'); renderPaper(); renderToolbar(); save(); toast('Switched to ' + t.name + '.'); }
+  else { save(); toast(t.name + ' selected. Now upload a resume, paste your text, or start from scratch to fill it in.'); }
+}
+
 /* ---------- paper ---------- */
-function renderPaper() {
-  const r = st.resume, empty = isEmpty(r);
-  $('#empty').hidden = !empty; $('#paper').hidden = empty; $('#pages').hidden = empty;
-  $('#dlBtn').disabled = empty; if (empty) $('#dlMenu').hidden = true;
-  if (empty) return;
-  const hl = st.hlBase;
-  const m = s => { s = String(s); const e = esc(s); return hl && !hl.has(s.trim()) ? '<mark class="chg">' + e + '</mark>' : e; };
+// Renders one section's markup (shared by the single-column body and, for a 'sidebar'
+// template, both the sidebar and main columns — one renderer, never two).
+function sectionHtml(s, m) {
+  const ul = l => l.length ? '<ul>' + l.map(b => `<li>${m(b)}</li>`).join('') + '</ul>' : '';
+  let h = `<h2>${esc(s.h)}</h2>`;
+  if (s.type === 'para') h += `<p>${m(s.text)}</p>`;
+  else if (s.type === 'skills') s.groups.forEach(g => { h += `<p>${g.group ? `<b>${esc(g.group)}:</b> ` : ''}${g.items.map(m).join(', ')}</p>`; });
+  else if (s.type === 'exp') s.items.forEach(e => { h += `<div class="ent"><div class="row"><b>${m(e.title || e.company)}</b><span class="dt">${esc(fmtDates(e))}</span></div>`; if (e.title && (e.company || e.location)) h += `<div><i>${[e.company, e.location].filter(Boolean).map(m).join(', ')}</i></div>`; h += ul(e.bullets) + '</div>'; });
+  else if (s.type === 'proj') s.items.forEach(p => { h += `<div class="ent"><div class="row"><b>${m(p.name)}</b><span class="dt">${esc(p.link)}</span></div>`; if (p.tech) h += `<div><i>Tech: ${m(p.tech)}</i></div>`; h += ul(p.bullets) + '</div>'; });
+  else if (s.type === 'edu') s.items.forEach(e => { h += `<div class="ent"><div class="row"><b>${m(e.degree || e.school)}</b><span class="dt">${esc(e.year)}</span></div>`; if (e.degree && (e.school || e.location)) h += `<div><i>${[e.school, e.location].filter(Boolean).map(m).join(', ')}</i></div>`; if (e.details) h += `<div>${m(e.details)}</div>`; h += '</div>'; });
+  else if (s.type === 'list') h += ul(s.items);
+  return h;
+}
+// Builds the full inner HTML (header + sections, sidebar-split if the template calls for
+// it) for a resume under a given template. Shared by the live editor preview, the
+// recruiter/ATS preview dialog, and the template-gallery thumbnails/full previews — one
+// rendering engine, never a second one duplicated for the gallery.
+function paperInnerHtml(r, t, m) {
+  m = m || (s => esc(String(s)));
   let h = '<header class="hd">';
   if (r.name) h += `<h1>${m(r.name)}</h1>`;
   if (r.headline) h += `<p class="hl">${m(r.headline)}</p>`;
   const cl = contactList(r.contact); if (cl.length) h += `<p class="ct">${cl.map(m).join(' | ')}</p>`;
   h += '</header>';
-  sections(r).forEach(s => {
-    h += `<h2>${esc(s.h)}</h2>`;
-    const ul = l => l.length ? '<ul>' + l.map(b => `<li>${m(b)}</li>`).join('') + '</ul>' : '';
-    if (s.type === 'para') h += `<p>${m(s.text)}</p>`;
-    else if (s.type === 'skills') s.groups.forEach(g => { h += `<p>${g.group ? `<b>${esc(g.group)}:</b> ` : ''}${g.items.map(m).join(', ')}</p>`; });
-    else if (s.type === 'exp') s.items.forEach(e => { h += `<div class="ent"><div class="row"><b>${m(e.title || e.company)}</b><span class="dt">${esc(fmtDates(e))}</span></div>`; if (e.title && (e.company || e.location)) h += `<div><i>${[e.company, e.location].filter(Boolean).map(m).join(', ')}</i></div>`; h += ul(e.bullets) + '</div>'; });
-    else if (s.type === 'proj') s.items.forEach(p => { h += `<div class="ent"><div class="row"><b>${m(p.name)}</b><span class="dt">${esc(p.link)}</span></div>`; if (p.tech) h += `<div><i>Tech: ${m(p.tech)}</i></div>`; h += ul(p.bullets) + '</div>'; });
-    else if (s.type === 'edu') s.items.forEach(e => { h += `<div class="ent"><div class="row"><b>${m(e.degree || e.school)}</b><span class="dt">${esc(e.year)}</span></div>`; if (e.degree && (e.school || e.location)) h += `<div><i>${[e.school, e.location].filter(Boolean).map(m).join(', ')}</i></div>`; if (e.details) h += `<div>${m(e.details)}</div>`; h += '</div>'; });
-    else if (s.type === 'list') h += ul(s.items);
-  });
-  const p = $('#paper'); p.className = 'paper ' + st.tpl + (st.fresh ? ' fresh' : ''); p.style.setProperty('--ac', accentNow()); p.innerHTML = h; measure();
+  const secs = sections(r, t.order);
+  if (t.layout === 'sidebar' && t.sidebarKeys && t.sidebarKeys.length) {
+    const sideKeys = new Set(t.sidebarKeys);
+    const side = secs.filter(s => sideKeys.has(s.key)), main = secs.filter(s => !sideKeys.has(s.key));
+    h += '<div class="pcols"><div class="pside">' + side.map(s => sectionHtml(s, m)).join('') + '</div><div class="pmain">' + main.map(s => sectionHtml(s, m)).join('') + '</div></div>';
+  } else {
+    h += secs.map(s => sectionHtml(s, m)).join('');
+  }
+  return h;
+}
+function applyPaperDataset(el, t) {
+  const sty = t.style;
+  el.dataset.font = sty.font; el.dataset.align = sty.align; el.dataset.heading = sty.heading; el.dataset.density = sty.density; el.dataset.divider = sty.divider ? '1' : '0'; el.dataset.layout = t.layout;
+}
+function renderPaper() {
+  const r = st.resume, empty = isEmpty(r);
+  $('#empty').hidden = !empty; $('#paper').hidden = empty; $('#pages').hidden = empty;
+  $('#dlBtn').disabled = empty; if (empty) $('#dlMenu').hidden = true;
+  if (empty) return;
+  const t = getTemplate(st.tpl);
+  const hl = st.hlBase;
+  const m = s => { s = String(s); const e = esc(s); return hl && !hl.has(s.trim()) ? '<mark class="chg">' + e + '</mark>' : e; };
+  const p = $('#paper'); p.className = 'paper' + (st.fresh ? ' fresh' : '');
+  applyPaperDataset(p, t);
+  p.style.setProperty('--ac', accentNow()); p.innerHTML = paperInnerHtml(r, t, m); measure();
 }
 function measure() {
   const p = $('#paper'); if (p.hidden) return;
@@ -3425,14 +3819,14 @@ function measure() {
 
 /* ---------- toolbar + ats ---------- */
 function renderToolbar() {
-  $('#tplClassic').setAttribute('aria-pressed', String(st.tpl === 'classic')); $('#tplClean').setAttribute('aria-pressed', String(st.tpl === 'clean'));
+  $('#tplPickLabel').textContent = getTemplate(st.tpl).name;
   $('#sw').innerHTML = ACCENTS.map(a => `<button type="button" style="background:${a.v}" data-v="${a.v}" aria-label="${a.n} accent" aria-pressed="${accentNow() === a.v}" title="${a.n}"></button>`).join('');
   $('#undo').hidden = !st.prev.length; $('#clearHl').hidden = !st.hlBase;
   const empty = isEmpty(st.resume);
   $('#previewBtn').disabled = empty;
   const sc = empty ? 0 : computeATSCompatibility(st.resume, st.importMeta).total;
   $('#scoreTxt').textContent = empty ? 'ATS' : 'ATS ' + sc; $('#scoreDot').className = 'dot' + (empty ? '' : sc >= 80 ? ' g' : sc >= 60 ? ' a' : ' r');
-  ['#tplClassic', '#tplClean'].forEach(s => { $(s).disabled = false; });
+  $('#tplPickBtn').disabled = false;
 }
 function meterHtml(score) { const on = Math.round(score / 10); return Array.from({ length: 10 }, (_, i) => `<i class="${i < on ? 'on' : ''}"></i>`).join(''); }
 function renderAll() { renderChat(); renderChips(); renderPaper(); renderToolbar(); renderAts(); updateAvail(); }
@@ -3477,6 +3871,12 @@ function wire() {
   $('#file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; handleFile(f); });
   $('#pasteBtn').addEventListener('click', openPaste); $('#emPaste').addEventListener('click', openPaste);
   $('#emTell').addEventListener('click', startBuilder);
+  $('#emTemplate').addEventListener('click', () => openTplGallery('select'));
+  const emCount = $('#emTplCount'); if (emCount) emCount.textContent = TEMPLATES.length;
+  $('#tplGalleryClose').addEventListener('click', closeTplGallery);
+  $('#tplFullBack').addEventListener('click', () => { closeTplFull(); });
+  $('#tplFullUse').addEventListener('click', () => applyTemplateChoice(st.tplFullId));
+  ['#tplSearch', '#tplFCat', '#tplFLayout', '#tplFStyle'].forEach(s => $(s).addEventListener('input', renderTplGallery));
   $('#bfSubmit').addEventListener('click', submitBuilderForm);
   $('#pasteCancel').addEventListener('click', closePaste);
   $('#pasteGo').addEventListener('click', () => { const t = $('#pasteTxt').value.trim(); if (t.length < 40) { toast('Paste a bit more text.'); return; } closePaste(); $('#pasteTxt').value = ''; importResume('text', t, 'Reading the text you pasted'); });
@@ -3507,8 +3907,7 @@ function wire() {
       try { localStorage.setItem('itc_sidebar_collapsed', collapsed ? '1' : '0'); } catch (e) {}
     });
   })();
-  $('#tplClassic').addEventListener('click', () => { if (st.tpl === 'classic') return; st.tpl = 'classic'; st.fresh = false; snapshotVersion('Changed to Classic template'); renderPaper(); renderToolbar(); save(); });
-  $('#tplClean').addEventListener('click', () => { if (st.tpl === 'clean') return; st.tpl = 'clean'; st.fresh = false; snapshotVersion('Changed to Modern template'); renderPaper(); renderToolbar(); save(); });
+  $('#tplPickBtn').addEventListener('click', () => openTplGallery('switch'));
   $('#sw').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (st.accent === b.dataset.v) return; st.accent = b.dataset.v; st.fresh = false; snapshotVersion('Changed resume color to ' + (b.getAttribute('aria-label') || '').replace(' accent', '')); renderPaper(); renderToolbar(); save(); });
   $('#undo').addEventListener('click', undo);
   $('#clearHl').addEventListener('click', () => { st.hlBase = null; st.fresh = false; renderPaper(); renderToolbar(); });
