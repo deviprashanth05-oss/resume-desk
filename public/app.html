@@ -131,6 +131,12 @@ svg.ic{flex:none}
 .msg .inl{margin-top:6px;background:none;border:0;padding:0;color:var(--accent);font-size:12px;text-decoration:underline;text-underline-offset:3px}
 .chips{display:flex;gap:6px;padding:2px 14px 6px;overflow-x:auto;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
+/* The row already scrolls horizontally (overflow-x:auto above) — the problem on a phone was
+   that a chip gets cut off flush against the screen edge with nothing to suggest more follow,
+   so it reads as a layout bug rather than "swipe for more". A soft fade at both edges signals
+   that without changing anything about the actual scrolling behavior. Flat if it doesn't scroll
+   (nothing sits in the faded zone), so this is harmless on wider screens too. */
+.chips{-webkit-mask-image:linear-gradient(to right,transparent,black 14px,black calc(100% - 14px),transparent);mask-image:linear-gradient(to right,transparent,black 14px,black calc(100% - 14px),transparent)}
 .chip{flex:none;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:12px;white-space:nowrap}
 .chip:hover{border-color:var(--accent)}
 .composer{margin:0 12px 8px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:8px 10px 6px;box-shadow:0 1px 2px rgba(15,27,51,.06),0 8px 24px -16px rgba(15,27,51,.35);transition:border-color .18s,box-shadow .18s}
@@ -541,13 +547,27 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 .locked-ov .lk-body{filter:blur(2.5px);opacity:.55;pointer-events:none;user-select:none}
 .locked-ov .lk-teaser{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:16px;background:color-mix(in srgb,var(--panel2) 55%,transparent)}
 .locked-ov .lk-teaser p{margin:0;color:var(--muted);font-size:13px;max-width:30ch}
+/* On a phone, .lk-body's real content (the full ATS breakdown / JD panel) can run to
+   several screens tall. .lk-teaser is absolutely positioned to inset:0 of .locked-ov, so it
+   centers itself across that *entire* blurred height — on mobile that put the actual unlock
+   message and button far down an almost-empty-looking wall of blur, sometimes below the
+   fold. Capping the card's height on mobile keeps the teaser where it's immediately visible. */
+@media (max-width:819px){.locked-ov{max-height:62vh;overflow:hidden;border-radius:14px}}
 .histlist{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow:auto;margin:14px 0}
 .histitem{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--panel2)}
 .histitem b{font-size:13.5px;display:block}
 .histitem small{color:var(--muted);font-size:12px}
 .histitem button{flex:none}
 .histitem.current{border-color:var(--accent);background:var(--tint)}
-@media (max-width:819px){.top{gap:8px;padding:0 10px}.rsbtn{max-width:44vw}#saveState{display:none}}
+@media (max-width:819px){
+  .top{gap:8px;padding:0 10px}.rsbtn{max-width:44vw}#saveState{display:none}
+  /* #quota's text is a full sentence ("Starter · 2 of 5 resumes this period") built in JS —
+     fine in a wide desktop pill, but on a phone it wrapped inside the pill's rounded border
+     into 2-3 lines, stretching it into an odd tall oval instead of a normal badge. Truncate
+     to one line on mobile instead; the full text is still in its title attribute (tap-and-hold
+     / long-press shows it), and tapping it opens the real plan details dialog anyway. */
+  #quota{max-width:42vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-block}
+}
 
 </style>
 </head>
