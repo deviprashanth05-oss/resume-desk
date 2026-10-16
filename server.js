@@ -3,6 +3,7 @@ const db = require('./lib/db');
 const A = require('./lib/auth');
 const ai = require('./lib/ai');
 const billing = require('./lib/billing');
+const templates = require('./lib/templates');
 const razorpay = require('./lib/razorpay');
 const mailer = require('./lib/mailer');
 const googleAuth = require('./lib/google-auth');
@@ -264,7 +265,9 @@ app.post('/api/resumes', A.requireAuth, ah(async (req, res) => {
     const existing = await db.get('SELECT id,title,updated_at FROM resumes WHERE user_id=? AND client_request_id=?', [req.user.id, clientReqId]);
     if (existing) return res.json(existing); // a retried/duplicate submission — return what was already created, don't create or count again
   }
-  const data = sanitizeData(b.data) || {}, str = JSON.stringify(data);
+  const data = sanitizeData(b.data) || {};
+  if (data.tpl !== undefined) data.tpl = templates.resolveTemplateId(data.tpl); // never trust a client-supplied template id
+  const str = JSON.stringify(data);
   if (str.length > MAX_DATA) return res.status(413).json({ error: 'Too large.' });
   const nonEmpty = billing.resumeContentNonEmpty(data.resume);
   const bs = req.user.role === 'admin' ? ADMIN_BILLING : await billing.getBillingStatus(req.user.id);
@@ -306,6 +309,7 @@ app.put('/api/resumes/:id', A.requireAuth, ah(async (req, res) => {
   if (b.title !== undefined) { sets.push('title=?'); args.push(clean(b.title).slice(0, 80) || 'Untitled resume'); }
   if (b.data !== undefined) {
     const d = sanitizeData(b.data); if (!d) return res.status(400).json({ error: 'Bad data' });
+    if (d.tpl !== undefined) d.tpl = templates.resolveTemplateId(d.tpl); // never trust a client-supplied template id
     const s = JSON.stringify(d); if (s.length > MAX_DATA) return res.status(413).json({ error: 'Too large.' });
     sets.push('data=?'); args.push(s); touchesContent = true; willBeNonEmpty = billing.resumeContentNonEmpty(d.resume);
   }
