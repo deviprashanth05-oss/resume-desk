@@ -2876,15 +2876,20 @@ function closeMenus() { ['#rsMenu', '#acctMenu', '#dlMenu'].forEach(s => { $(s).
 function toggleMenu(menu, btn) { const open = $(menu).hidden; closeMenus(); $(menu).hidden = !open; $(btn).setAttribute('aria-expanded', String(open)); }
 
 /* ---------- voice input (browser Speech Recognition, optional) ---------- */
-const voice = { rec: null, on: false, supported: false, baseText: '', finalAdded: '' };
-function initVoice() {
+// Chrome's SpeechRecognition engine silently stops a "continuous" session after a period
+// of silence or a long run, independent of our own voice.on flag — and immediately after
+// that happens, the underlying native object is still mid-teardown for a brief moment, so
+// calling .start() again right away throws InvalidStateError synchronously (the "Could not
+// start voice input" failure). Reusing one long-lived recognizer across the whole page
+// session made this worse: once that object's internal state got out of sync, every future
+// click kept failing. Fix: build a brand-new recognizer each time the mic is started (so a
+// stale internal state from a previous run can never leak into the next one), and retry once
+// automatically after a short delay before showing the user an error.
+const voice = { rec: null, on: false, supported: false, starting: false, baseText: '', finalAdded: '' };
+function makeRecognizer() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const btn = $('#micBtn');
-  if (!SR || !btn) return; // unsupported: button stays hidden, app works normally
-  voice.supported = true; btn.hidden = false;
   const rec = new SR();
   rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
-  voice.rec = rec;
   rec.onresult = e => {
     let interim = '', finalChunk = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -2896,13 +2901,20 @@ function initVoice() {
     t.value = joined; autosize();
   };
   rec.onerror = ev => {
-    stopVoice();
+    const wasOn = voice.on; stopVoice();
     if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') toast('Microphone access was blocked. Allow it in your browser settings to use voice input.');
     else if (ev.error === 'no-speech') toast('I did not catch anything. Try speaking again.');
     else if (ev.error === 'audio-capture') toast('No microphone found. Check that one is connected.');
-    else if (ev.error !== 'aborted') toast('Voice input stopped. Please try again.');
+    else if (ev.error !== 'aborted' && wasOn) toast('Voice input stopped. Please try again.');
   };
   rec.onend = () => { if (voice.on) setMic(false); };
+  return rec;
+}
+function initVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const btn = $('#micBtn');
+  if (!SR || !btn) return; // unsupported: button stays hidden, app works normally
+  voice.supported = true; btn.hidden = false;
   btn.addEventListener('click', () => { if (voice.on) stopVoice(); else startVoice(); });
 }
 function setMic(on) {
@@ -2911,15 +2923,26 @@ function setMic(on) {
   btn.title = on ? 'Stop recording' : 'Speak your message';
   $('#composer').classList.toggle('listening', on);
 }
-function startVoice() {
-  if (!voice.supported || voice.on || st.busy) return;
+function startVoice(isRetry) {
+  if (!voice.supported || voice.on || voice.starting || st.busy) return;
+  voice.starting = true;
   const t = $('#inp');
-  voice.baseText = t.value.trim(); voice.finalAdded = '';
-  try { voice.rec.start(); setMic(true); t.focus(); }
-  catch (e) { setMic(false); toast('Could not start voice input. Try again.'); }
+  if (!isRetry) { voice.baseText = t.value.trim(); voice.finalAdded = ''; }
+  // Always start from a fresh recognizer instance — never reuse one that may still be
+  // tearing down from a previous session (see the comment above voice's declaration).
+  try { if (voice.rec) voice.rec.abort(); } catch (e) {}
+  voice.rec = makeRecognizer();
+  try {
+    voice.rec.start(); voice.starting = false; setMic(true); t.focus();
+  } catch (e) {
+    voice.starting = false;
+    if (!isRetry) { setTimeout(() => startVoice(true), 250); return; }
+    setMic(false); toast('Could not start voice input. Try again.');
+  }
 }
 function stopVoice() {
-  if (!voice.rec) return;
+  voice.starting = false;
+  if (!voice.rec) { setMic(false); return; }
   const wasOn = voice.on; setMic(false);
   try { voice.rec.stop(); } catch (e) {}
   if (wasOn) $('#inp').focus();
