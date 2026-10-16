@@ -117,7 +117,7 @@ app.get('/api/auth/google/callback', ah(async (req, res) => {
   res.redirect('/');
 }));
 
-const ADMIN_BILLING = { plan: 'ADMIN', status: 'ACTIVE', unlimited: true, isPaid: true, creditsAllocated: null, creditsUsed: 0, creditsRemaining: null, trialComplete: false, maxResumes: null, endDate: null };
+const ADMIN_BILLING = ai.ADMIN_BILLING;
 
 /* ---------- account ---------- */
 app.get('/api/me', A.requireAuth, ah(async (req, res) => res.json({
@@ -126,18 +126,21 @@ app.get('/api/me', A.requireAuth, ah(async (req, res) => res.json({
   announcement: (await db.getSettings()).announcement, tz: db.TZ
 })));
 
-/* ---------- billing: Free Trial (3 credits, once) + paid credit-pack subscriptions ---------- */
+/* ---------- billing: Free (1 lifetime resume) + Starter/Pro/Career Pro monthly plans ---------- */
 app.get('/api/billing/status', A.requireAuth, ah(async (req, res) => res.json(
   req.user.role === 'admin' ? ADMIN_BILLING : await billing.getBillingStatus(req.user.id)
 )));
-app.get('/api/billing/plans', A.requireAuth, ah(async (req, res) => res.json({ plans: [billing.PLANS.STARTER, billing.PLANS.PRO, billing.PLANS.POWER] })));
+// Only the plans actually on sale (billing.SELLABLE_PLANS) — the legacy POWER plan
+// code still resolves tier/allowance for existing subscribers (see lib/billing.js)
+// but is intentionally not offered to new buyers.
+app.get('/api/billing/plans', A.requireAuth, ah(async (req, res) => res.json({ plans: billing.SELLABLE_PLANS.map(k => billing.PLANS[k]) })));
 // Razorpay Standard Checkout, step 1: create an order server-side. Amount is always
 // computed from billing.PLANS here, never trusted from the client, so a tampered
 // request can't buy a plan for less. Returns the public key_id (safe to expose —
 // it identifies the merchant, it isn't a secret) so the frontend can open the modal.
 app.post('/api/billing/razorpay/order', A.requireAuth, ah(async (req, res) => {
-  const plan = billing.PLANS[(req.body || {}).plan];
-  if (!plan) return res.status(400).json({ error: 'Plan must be STARTER, PRO, or POWER.' });
+  const plan = billing.SELLABLE_PLANS.includes((req.body || {}).plan) ? billing.PLANS[(req.body || {}).plan] : null;
+  if (!plan) return res.status(400).json({ error: 'Plan must be STARTER, PRO, or CAREER_PRO.' });
   const rp = razorpay.getClient();
   if (!rp) return res.status(500).json({ error: 'Online payment is not set up on the server yet.' });
   const amountPaise = Math.round(plan.price * 100);
@@ -163,7 +166,7 @@ app.post('/api/billing/razorpay/order', A.requireAuth, ah(async (req, res) => {
 // (lib/admin.js) is untouched and still works as a fallback / for UPI screenshots.
 app.post('/api/billing/razorpay/verify', A.requireAuth, ah(async (req, res) => {
   const b = req.body || {};
-  const plan = billing.PLANS[b.plan];
+  const plan = billing.SELLABLE_PLANS.includes(b.plan) ? billing.PLANS[b.plan] : null;
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = b;
   if (!plan || !razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
     return res.status(400).json({ error: 'Missing payment details.' });
@@ -174,28 +177,32 @@ app.post('/api/billing/razorpay/verify', A.requireAuth, ah(async (req, res) => {
   // Idempotency guard: if this exact payment was already verified and credited
   // (a retried request, a double-fired handler, the user re-submitting), return
   // the existing result instead of inserting a second subscription row and
-  // crediting the account twice for one payment.
+  // granting the resume allowance twice for one payment.
   const already = await db.get('SELECT * FROM subscriptions WHERE subscription_id=? AND subscription_source=?', [razorpay_payment_id, 'RAZORPAY']);
   if (already) {
-    return res.json({ ok: true, plan: already.plan, credits_allocated: already.credits_allocated, end_date: already.end_date, email_sent: false, already_processed: true });
+    return res.json({ ok: true, plan: already.plan, resume_allowance: already.resumes_allocated, end_date: already.end_date, email_sent: false, already_processed: true });
   }
+  // One purchase = one fresh billing period of plan.days (30), with its own resume
+  // allowance starting at 0 used — this is what "renewal resets the allowance" means
+  // under this model (see lib/billing.js's header comment re: no Razorpay webhook/
+  // Subscriptions API — renewal is a repeat manual Checkout, not auto-charge).
   const now = Date.now(), start = now, end = now + plan.days * 864e5;
   await db.run("UPDATE subscriptions SET status='CANCELLED' WHERE user_id=? AND status='ACTIVE'", [req.user.id]);
-  await db.run('INSERT INTO subscriptions(user_id,plan,status,start_date,end_date,subscription_id,subscription_source,credits_allocated,credits_used,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
-    [req.user.id, plan.plan, 'ACTIVE', start, end, razorpay_payment_id, 'RAZORPAY', plan.credits, 0, now]);
+  await db.run('INSERT INTO subscriptions(user_id,plan,status,start_date,end_date,subscription_id,subscription_source,resumes_allocated,resumes_created,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
+    [req.user.id, plan.plan, 'ACTIVE', start, end, razorpay_payment_id, 'RAZORPAY', plan.resumeAllowance, 0, now]);
   await db.audit(req.user, 'subscription.razorpay', req.user.email, plan.plan + ' via Razorpay payment ' + razorpay_payment_id);
   const emailResult = await mailer.sendInvoiceEmail({
     to: req.user.email, name: req.user.name, plan: plan.plan, label: plan.label, price: plan.price,
-    currency: plan.currency, credits: plan.credits, startDate: start, endDate: end
+    currency: plan.currency, resumeAllowance: plan.resumeAllowance, startDate: start, endDate: end
   });
-  res.json({ ok: true, plan: plan.plan, credits_allocated: plan.credits, end_date: end, email_sent: emailResult.sent });
+  res.json({ ok: true, plan: plan.plan, resume_allowance: plan.resumeAllowance, end_date: end, email_sent: emailResult.sent });
 }));
 // The Job Match score itself is computed entirely client-side (deterministic JS,
 // never an AI call, see public/app.html's ats-engine) so there is no scoring API to
-// gate. This is the actual server-side gate for that feature (section 6: "if a Free
-// user calls the Job Match API directly, the server must reject") — the client asks
-// here before it ever runs that local computation, and the answer always comes from
-// the central feature matrix, never from anything the client sent.
+// gate. This is the actual server-side gate for that feature and for Improve ATS
+// Score / resume creation pre-checks — the client asks here before running the
+// local computation or opening a gated flow, and the answer always comes from the
+// central feature matrix, never from anything the client sent.
 app.get('/api/billing/feature/:feature', A.requireAuth, ah(async (req, res) => {
   const feature = billing.FEATURES[req.params.feature];
   if (!feature) return res.status(400).json({ error: 'Unknown feature.' });
@@ -229,33 +236,60 @@ app.delete('/api/me', A.requireAuth, ah(async (req, res) => {
   await A.destroySession(req, res); res.json({ ok: true });
 }));
 
-/* ---------- resumes ---------- */
+/* ---------- resumes ----------
+   Resume-creation limits are NOT AI-message limits. A resume slot is consumed only
+   the first time a specific resume record holds genuinely non-empty content
+   (resumeContentNonEmpty) — never on creating an empty placeholder (login auto-
+   create, "New resume"), never on ordinary edits/renames/template/colour changes to
+   an already-counted resume, never on viewing, downloading, or a failed save. Both
+   routes below use the exact same atomic reserve-before-write / release-on-failure
+   pattern (billing.reserveResumeSlot/releaseResumeSlot), so a resume can never be
+   double-counted and a race between two concurrent requests can never both succeed
+   past the real limit. */
 const MAX_DATA = 500 * 1024;
 const sanitizeData = d => (d && typeof d === 'object' && !Array.isArray(d)) ? d : null;
+const resumeLimitError = bs => ({
+  code: bs.isPaid ? 'resume_limit_reached' : 'FREE_LIMIT_REACHED',
+  error: bs.isPaid ? billing.RESUME_LIMIT_REPLY_PAID : billing.RESUME_LIMIT_REPLY_FREE,
+});
 app.get('/api/resumes', A.requireAuth, ah(async (req, res) => res.json(await db.all('SELECT id,title,updated_at FROM resumes WHERE user_id=? ORDER BY updated_at DESC', [req.user.id]))));
 app.post('/api/resumes', A.requireAuth, ah(async (req, res) => {
-  const bs = req.user.role === 'admin' ? ADMIN_BILLING : await billing.getBillingStatus(req.user.id);
-  // A Free user whose 2 credits are gone cannot create (or re-create) a resume at
-  // all — this blocks the "delete it and start a new free trial" loophole outright,
-  // independent of how many resumes they currently have.
-  if (!bs.unlimited && !bs.isPaid && bs.creditsRemaining <= 0) {
-    return res.status(403).json({ code: 'FREE_TRIAL_EXHAUSTED', error: 'Your 3 free AI credits have been used. Upgrade to continue creating and editing resumes.' });
+  // Reasonable technical abuse-prevention limit on placeholder spam via direct API
+  // calls — separate from, and far looser than, the real resume-creation allowance
+  // below (which only ever applies to a resume that actually gets real content).
+  if (A.limited('create-resume:' + req.user.id, 30, 3600000)) return res.status(429).json({ code: 'rate_limited', error: 'Too many resumes created too quickly. Wait a bit and try again.' });
+  const b = req.body || {};
+  const clientReqId = typeof b.client_request_id === 'string' && b.client_request_id ? b.client_request_id.slice(0, 64) : null;
+  if (clientReqId) {
+    const existing = await db.get('SELECT id,title,updated_at FROM resumes WHERE user_id=? AND client_request_id=?', [req.user.id, clientReqId]);
+    if (existing) return res.json(existing); // a retried/duplicate submission — return what was already created, don't create or count again
   }
-  const max = bs.unlimited || bs.isPaid ? (parseInt((await db.getSettings()).max_resumes, 10) || 15) : 1;
-  const count = (await db.get('SELECT COUNT(*) c FROM resumes WHERE user_id=?', [req.user.id])).c;
-  if (count >= max) {
-    // Beyond the first resume this is really the MULTIPLE_RESUMES feature, same
-    // central matrix as everything else — a Free user is never allowed past 1
-    // regardless of this specific count check, a paid user up to the configured max.
-    const locked = !billing.canUseFeature(bs, billing.FEATURES.MULTIPLE_RESUMES).allowed;
-    return res.status(400).json(locked
-      ? { code: 'trial_one_resume', error: 'Your Free Trial includes one resume. Upgrade to continue creating and managing additional resumes.' }
-      : { error: 'You can keep up to ' + max + ' resumes. Delete one to add another.' });
-  }
-  const b = req.body || {}, data = sanitizeData(b.data) || {}, str = JSON.stringify(data);
+  const data = sanitizeData(b.data) || {}, str = JSON.stringify(data);
   if (str.length > MAX_DATA) return res.status(413).json({ error: 'Too large.' });
+  const nonEmpty = billing.resumeContentNonEmpty(data.resume);
+  const bs = req.user.role === 'admin' ? ADMIN_BILLING : await billing.getBillingStatus(req.user.id);
+  let reservation = null;
+  if (nonEmpty && !bs.unlimited) {
+    const check = billing.canUseFeature(bs, billing.FEATURES.RESUME_CREATE);
+    if (!check.allowed) return res.status(403).json(resumeLimitError(bs));
+    reservation = await billing.reserveResumeSlot(req.user.id);
+    if (!reservation.ok) return res.status(403).json(resumeLimitError(bs)); // lost a race since the check above
+  }
   const id = crypto.randomUUID(), now = Date.now(), title = clean(b.title).slice(0, 80) || 'Untitled resume';
-  await db.run('INSERT INTO resumes(id,user_id,title,data,created_at,updated_at) VALUES(?,?,?,?,?,?)', [id, req.user.id, title, str, now, now]);
+  try {
+    await db.run('INSERT INTO resumes(id,user_id,title,data,created_at,updated_at,counted,client_request_id) VALUES(?,?,?,?,?,?,?,?)',
+      [id, req.user.id, title, str, now, now, nonEmpty ? 1 : 0, clientReqId]);
+  } catch (e) {
+    if (reservation) await billing.releaseResumeSlot(req.user.id, reservation);
+    if (e && e.code === 'ER_DUP_ENTRY' && clientReqId) {
+      // Lost a race against a concurrent identical retry that landed first — return
+      // that one instead of a duplicate-key error. Its own reservation is the one
+      // that counts; this request's reservation was already released just above.
+      const existing = await db.get('SELECT id,title,updated_at FROM resumes WHERE user_id=? AND client_request_id=?', [req.user.id, clientReqId]);
+      if (existing) return res.json(existing);
+    }
+    throw e;
+  }
   res.json({ id, title, updated_at: now });
 }));
 app.get('/api/resumes/:id', A.requireAuth, ah(async (req, res) => {
@@ -265,16 +299,46 @@ app.get('/api/resumes/:id', A.requireAuth, ah(async (req, res) => {
   res.json({ id: r.id, title: r.title, data, updated_at: r.updated_at });
 }));
 app.put('/api/resumes/:id', A.requireAuth, ah(async (req, res) => {
-  const b = req.body || {}, cur = await db.get('SELECT id FROM resumes WHERE id=? AND user_id=?', [req.params.id, req.user.id]);
+  const b = req.body || {}, cur = await db.get('SELECT id,counted FROM resumes WHERE id=? AND user_id=?', [req.params.id, req.user.id]);
   if (!cur) return res.status(404).json({ error: 'Not found' });
   const sets = [], args = [];
+  let willBeNonEmpty = false, touchesContent = false;
   if (b.title !== undefined) { sets.push('title=?'); args.push(clean(b.title).slice(0, 80) || 'Untitled resume'); }
-  if (b.data !== undefined) { const d = sanitizeData(b.data); if (!d) return res.status(400).json({ error: 'Bad data' }); const s = JSON.stringify(d); if (s.length > MAX_DATA) return res.status(413).json({ error: 'Too large.' }); sets.push('data=?'); args.push(s); }
+  if (b.data !== undefined) {
+    const d = sanitizeData(b.data); if (!d) return res.status(400).json({ error: 'Bad data' });
+    const s = JSON.stringify(d); if (s.length > MAX_DATA) return res.status(413).json({ error: 'Too large.' });
+    sets.push('data=?'); args.push(s); touchesContent = true; willBeNonEmpty = billing.resumeContentNonEmpty(d.resume);
+  }
+  // A resume slot is only ever consumed on the FIRST save that makes this specific
+  // record's content non-empty (cur.counted flips 0→1 right here, atomically with
+  // the same UPDATE) — every later edit, rename, template/colour change, or retry
+  // of an already-counted resume leaves the counter untouched.
+  const needsSlot = touchesContent && willBeNonEmpty && !cur.counted;
+  const bs = req.user.role === 'admin' ? ADMIN_BILLING : await billing.getBillingStatus(req.user.id);
+  let reservation = null;
+  if (needsSlot && !bs.unlimited) {
+    const check = billing.canUseFeature(bs, billing.FEATURES.RESUME_CREATE);
+    if (!check.allowed) return res.status(403).json(resumeLimitError(bs));
+    reservation = await billing.reserveResumeSlot(req.user.id);
+    if (!reservation.ok) return res.status(403).json(resumeLimitError(bs));
+  }
+  if (needsSlot) { sets.push('counted=1'); }
   const now = Date.now(); sets.push('updated_at=?'); args.push(now);
-  await db.run('UPDATE resumes SET ' + sets.join(',') + ' WHERE id=? AND user_id=?', [...args, req.params.id, req.user.id]);
+  try {
+    await db.run('UPDATE resumes SET ' + sets.join(',') + ' WHERE id=? AND user_id=?', [...args, req.params.id, req.user.id]);
+  } catch (e) {
+    if (reservation) await billing.releaseResumeSlot(req.user.id, reservation);
+    throw e;
+  }
   res.json({ ok: true, updated_at: now });
 }));
-app.delete('/api/resumes/:id', A.requireAuth, ah(async (req, res) => { await db.run('DELETE FROM resumes WHERE id=? AND user_id=?', [req.params.id, req.user.id]); res.json({ ok: true }); }));
+app.delete('/api/resumes/:id', A.requireAuth, ah(async (req, res) => {
+  // Deleting a resume never restores a used creation slot within the same billing
+  // period/lifetime — otherwise delete-and-recreate would be an unlimited-resume
+  // loophole. The resumes_created/resumes_allocated counters on user_usage /
+  // subscriptions are untouched here; only the resume row itself is removed.
+  await db.run('DELETE FROM resumes WHERE id=? AND user_id=?', [req.params.id, req.user.id]); res.json({ ok: true });
+}));
 
 app.use('/api/admin', require('./lib/admin'));
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
