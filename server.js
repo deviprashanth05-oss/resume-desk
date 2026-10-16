@@ -19,7 +19,13 @@ app.set('trust proxy', process.env.TRUST_PROXY || 'loopback, linklocal, uniquelo
 
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('X-Frame-Options', 'DENY'); res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  // microphone=(self) allows the voice-input feature (browser Speech Recognition, wired up
+  // client-side in app.html's initVoice()) to actually request mic access on our own origin.
+  // It was previously microphone=(), which blocks the mic at the HTTP-header level before the
+  // browser's own permission prompt can even appear — no "allow it in browser settings" fixes
+  // that, since the page itself declares the feature off. Camera and geolocation stay disabled
+  // since nothing in the app uses them.
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(self), geolocation=()');
   // script/connect/frame-src additions below are the minimum Razorpay's Standard
   // Checkout needs: it loads its own script, opens its payment UI in an iframe, and
   // calls its own API directly from the browser (never through our server).
