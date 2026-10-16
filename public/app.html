@@ -540,7 +540,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
     </div>
     <span class="top-sp"></span>
     <span class="pill" id="saveState" aria-live="polite"></span>
-    <button class="pill" id="quota" type="button" title="View your plan and AI credits">…</button>
+    <button class="pill" id="quota" type="button" title="View your plan and resume usage">…</button>
     <div class="acct">
       <button class="avatar" id="acctBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Account">?</button>
       <div class="menu acctmenu" id="acctMenu" role="menu" hidden>
@@ -622,8 +622,8 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
           </div>
           <div class="lk-teaser" id="atsTeaser" hidden>
             <h3 style="margin:0">ATS Compatibility</h3>
-            <p>Your free AI credits have been used. Upgrade to continue using ATS analysis on this resume.</p>
-            <button class="btn sm" type="button" id="atsUnlockBtn">Upgrade</button>
+            <p>Viewing your ATS Compatibility score is included in every plan. "Improve ATS Score" (the AI rewrite) needs Pro or Career Pro.</p>
+            <button class="btn sm" type="button" id="atsUnlockBtn">See Pro &amp; Career Pro</button>
           </div>
         </div>
         <div class="card" id="atsImproveCard" hidden></div>
@@ -647,9 +647,9 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
             <div class="mres" id="matchOut"></div>
           </div>
           <div class="lk-teaser" id="jdTeaser" hidden>
-            <h3 style="margin:0">AI Job Match</h3>
-            <p>See how closely your resume matches a specific job description.</p>
-            <button class="btn sm" type="button" id="jdUnlockBtn">Unlock with Pro</button>
+            <h3 style="margin:0">Job Description Match</h3>
+            <p>See how closely your resume matches a specific job description, and get AI tailoring against it. Included in Career Pro only.</p>
+            <button class="btn sm" type="button" id="jdUnlockBtn">Unlock with Career Pro</button>
           </div>
         </div>
         <div class="card" id="improveCard" hidden></div>
@@ -2139,10 +2139,21 @@ async function submitBuilderForm() {
   const errEl = $('#bfErr');
   if (problem) { errEl.textContent = problem; errEl.hidden = false; return; }
   errEl.hidden = true;
+  // This submission is what would turn the current (empty) resume into a real,
+  // counted one — check the resume-creation allowance up front, before spending an
+  // AI call on a draft that could never be saved anyway. This is a UX pre-check
+  // only; the PUT save below is the real, authoritative, server-enforced gate.
+  if (isEmpty(st.resume) && st.billing && !st.billing.unlimited) {
+    try {
+      const r = await api('GET', '/api/billing/feature/RESUME_CREATE');
+      st.billing = Object.assign({}, st.billing, r.billing); renderBilling(); applyLockState();
+      if (!r.allowed) { st.builderDraft = v; save(); openUpgradeModal('resume_limit'); return; }
+    } catch (e) { /* if the check itself fails, fall through — the save below still enforces the real limit */ }
+  }
   const text = builderFormToText(v);
   // Persist the entered details immediately, before the AI call — so a failure
-  // (network error, credit exhaustion) or a refresh mid-request can never lose what
-  // the user typed; openBuilderForm() repopulates every field from exactly this.
+  // (network error, resume limit reached) or a refresh mid-request can never lose
+  // what the user typed; openBuilderForm() repopulates every field from exactly this.
   st.builderDraft = v; save();
   const finalTurn = 'CURRENT_RESUME_JSON:\n' + JSON.stringify(st.resume) +
     '\n\nTARGET_JOB_DESCRIPTION (may be empty):\n' + st.jd.slice(0, 6000) +
@@ -2158,7 +2169,21 @@ async function submitBuilderForm() {
     let changes = [];
     if (out && out.resume && typeof out.resume === 'object') {
       const nr = norm(out.resume);
-      if (!isEmpty(nr)) { applyResume(nr, true); changes = A(out.changes).map(S).filter(Boolean).slice(0, 4); if (!changes.length) changes = ['Resume created from your submitted details']; snapshotVersion('Created from Start from scratch'); }
+      if (!isEmpty(nr)) {
+        applyResume(nr, true); changes = A(out.changes).map(S).filter(Boolean).slice(0, 4); if (!changes.length) changes = ['Resume created from your submitted details']; snapshotVersion('Created from Start from scratch');
+        // Force the save now (instead of waiting for the normal 900ms debounce) so
+        // we know, before declaring success, whether the resume-creation limit —
+        // the real, server-enforced gate — actually allowed this save to go through.
+        save(); await flush();
+        if (st.lastFlushBlocked) {
+          // Undo the in-memory change: nothing was actually persisted, so the
+          // server-side resume this account owns is still exactly what it was
+          // before (empty). The typed form values are safe regardless — they were
+          // already saved separately, before this AI call, as plain builderDraft text.
+          st.resume = st.prev.length ? st.prev.pop() : norm({}); st.fresh = false;
+          throw { code: 'resume_limit_reached' };
+        }
+      }
     }
     if (out) { if (BUILDER_STEP_ORDER.includes(out.step) || out.step === 'done') st.builderStep = out.step; if (out.complete === true) st.builder = false; }
     // Success: the structured composer's job is done — hand off to the ordinary chat
@@ -2241,7 +2266,7 @@ async function serverJson(input, opts) {
 const ai = { json: serverJson }; const imgOK = true, dl = null;
 
 /* ---------- saved to your account on the server ---------- */
-Object.assign(st, { user: null, rid: null, resumes: [], title: 'Untitled resume', titleAuto: true, quota: null, billing: null, plans: null, versions: [] });
+Object.assign(st, { user: null, rid: null, resumes: [], title: 'Untitled resume', titleAuto: true, quota: null, billing: null, plans: null, versions: [], lastFlushBlocked: false, resumeLimitNoticeShown: false });
 let dirty = false, saveT = null;
 const greetingMsg = () => ({ role: 'assistant', text: GREETING, local: true });
 function setSaveState(t) { const e = $('#saveState'); if (e) e.textContent = t; }
@@ -2254,7 +2279,26 @@ async function flush(keepalive) {
   try {
     const r = await fetch('/api/resumes/' + rid, { method: 'PUT', headers: HDR, body: JSON.stringify(p), keepalive: !!keepalive, credentials: 'same-origin' });
     if (r.status === 401) { goLogin(); return; }
-    if (!r.ok) throw new Error('save');
+    if (!r.ok) {
+      let j = {}; try { j = await r.json(); } catch (e) {}
+      if (j && (j.code === 'resume_limit_reached' || j.code === 'FREE_LIMIT_REACHED')) {
+        // This save would have been the first one to give this resume real content,
+        // and the resume-creation limit is reached. Never retry forever (the
+        // condition won't change on its own) and never silently lose what was
+        // typed \u2014 it stays in memory and in the builder draft already persisted
+        // separately; just say so once and point at the upgrade flow. st.lastFlushBlocked
+        // lets a caller that needs to know (submitBuilderForm) check synchronously
+        // right after awaiting flush(), without every other flush() call site (auto-
+        // save on blur, pagehide, openResume's pre-switch flush, etc.) needing a
+        // try/catch around a save that, for them, is just "didn't save yet, fine".
+        st.lastFlushBlocked = true;
+        setSaveState('Not saved \u2014 resume limit reached');
+        if (!st.resumeLimitNoticeShown) { st.resumeLimitNoticeShown = true; toast(j.error || 'You have reached your resume limit. Upgrade to save this as a new resume.'); openUpgradeModal('resume_limit'); }
+        return;
+      }
+      throw new Error('save');
+    }
+    st.resumeLimitNoticeShown = false; st.lastFlushBlocked = false;
     const it = st.resumes.find(x => x.id === rid); if (it) { it.title = p.title; it.updated_at = Date.now(); }
     renderResumeMenu(); setSaveState('Saved');
   } catch (e) { dirty = true; setSaveState('Not saved. Retrying\u2026'); clearTimeout(saveT); saveT = setTimeout(() => flush(), 5000); }
@@ -2266,15 +2310,20 @@ function applyLoaded(rec) {
   st.jd = d.jd || ''; st.tpl = d.tpl === 'clean' ? 'clean' : 'classic'; st.accent = ACCENTS.some(a => a.v === d.accent) ? d.accent : null; st.ats = d.ats || null; st.importMeta = d.importMeta || null;
   st.builder = !!d.builder; st.builderStep = d.builderStep || 'personal';
   st.builderPhase = d.builderPhase || null; st.builderDraft = d.builderDraft || null;
-  st.hlBase = null; st.fresh = false; st.improve = null; st.atsImprove = null; $('#jd').value = st.jd; setSaveState('');
+  st.hlBase = null; st.fresh = false; st.improve = null; st.atsImprove = null; st.resumeLimitNoticeShown = false; st.lastFlushBlocked = false; $('#jd').value = st.jd; setSaveState('');
   if (st.builderPhase === 'form') openBuilderForm();
 }
 async function openResume(id) {
   if (st.busy) { toast('Wait for the current edit to finish.'); return; }
   await flush(); applyLoaded(await api('GET', '/api/resumes/' + id)); renderAll(); renderResumeMenu(); setView('chat');
 }
-async function createResume(title, data) {
-  const c = await api('POST', '/api/resumes', { title: title || 'Untitled resume', data: data || { chat: [greetingMsg()] } });
+function randomRequestId() { try { return crypto.randomUUID(); } catch (e) { return 'r' + Date.now() + Math.random().toString(36).slice(2); } }
+// client_request_id lets the server recognize a retried/duplicate submission (a
+// network timeout followed by an automatic or manual retry) and return the resume
+// that was already created instead of creating a second one or consuming a second
+// resume-creation slot (see server.js POST /api/resumes).
+async function createResume(title, data, clientRequestId) {
+  const c = await api('POST', '/api/resumes', { title: title || 'Untitled resume', data: data || { chat: [greetingMsg()] }, client_request_id: clientRequestId || randomRequestId() });
   st.resumes.unshift({ id: c.id, title: c.title, updated_at: c.updated_at }); await openResume(c.id);
 }
 function ago(ts) { const m = Math.round((Date.now() - ts) / 60000); if (m < 1) return 'just now'; if (m < 60) return m + ' min ago'; const h = Math.round(m / 60); if (h < 24) return h + ' h ago'; return Math.round(h / 24) + ' d ago'; }
@@ -2301,89 +2350,97 @@ function renderSidebarList() {
 function applyBillingHeaders(res) {
   const plan = res.headers.get('X-Billing-Plan');
   if (!plan) return;
-  const remHeader = res.headers.get('X-Credits-Remaining');
-  const allocHeader = res.headers.get('X-Credits-Allocated');
+  const remHeader = res.headers.get('X-Resumes-Remaining');
+  const allocHeader = res.headers.get('X-Resumes-Allocated');
   const tierHeader = res.headers.get('X-Plan-Tier');
-  st.billing = {
+  st.billing = Object.assign({}, st.billing, {
     plan,
     unlimited: plan === 'ADMIN',
     isPaid: res.headers.get('X-Is-Paid') === '1',
     planTier: tierHeader === '' || tierHeader == null ? 0 : +tierHeader,
-    creditsRemaining: remHeader === '' || remHeader == null ? null : +remHeader,
-    creditsAllocated: allocHeader === '' || allocHeader == null ? null : +allocHeader,
-  };
+    resumesRemaining: remHeader === '' || remHeader == null ? null : +remHeader,
+    resumesAllocated: allocHeader === '' || allocHeader == null ? null : +allocHeader,
+  });
   renderBilling(); applyLockState();
 }
-const PLAN_LABELS = { STARTER: 'Starter', PRO: 'Pro', POWER: 'Power' };
+const PLAN_LABELS = { STARTER: 'Starter', PRO: 'Pro', CAREER_PRO: 'Career Pro', POWER: 'Power' };
 function planLabel(code) { return PLAN_LABELS[code] || code; }
 function renderBilling() {
   const q = $('#quota'); if (!q || !st.billing) return;
   const b = st.billing;
   q.classList.remove('low', 'trial-done', 'pro');
-  const exhausted = !b.unlimited && b.creditsRemaining != null && b.creditsRemaining <= 0;
-  if (b.unlimited) { q.textContent = 'Admin'; q.title = 'Admin access — no credit limit.'; q.classList.add('pro'); }
-  else if (exhausted) {
-    q.textContent = b.isPaid ? (planLabel(b.plan) + ' · 0 AI Credits') : 'Free Trial Ended';
-    q.title = b.isPaid ? "You've used all your AI credits for this plan." : 'Upgrade to keep editing with AI.';
-    q.classList.add('trial-done');
-  } else {
-    const label = b.isPaid ? planLabel(b.plan) : 'Free Trial';
-    q.textContent = label + ' · ' + b.creditsRemaining + ' AI Credit' + (b.creditsRemaining === 1 ? '' : 's');
-    q.title = 'AI credits remaining on your plan.';
-    q.classList.toggle('low', b.creditsRemaining <= 1);
+  const atLimit = !b.unlimited && b.resumesRemaining != null && b.resumesRemaining <= 0;
+  if (b.unlimited) { q.textContent = 'Admin'; q.title = 'Admin access — no resume limit.'; q.classList.add('pro'); }
+  else {
+    const label = b.isPaid ? planLabel(b.plan) : 'Free';
+    const usage = b.resumesAllocated != null && b.resumesRemaining != null
+      ? ((b.resumesAllocated - b.resumesRemaining) + ' of ' + b.resumesAllocated + ' resume' + (b.resumesAllocated === 1 ? '' : 's') + (b.isPaid ? ' this period' : ' used'))
+      : '';
+    q.textContent = label + (usage ? ' · ' + usage : '');
+    q.title = b.isPaid ? 'Resumes created this billing period.' : 'Your Free plan includes one resume for the lifetime of your account.';
+    q.classList.toggle('low', atLimit);
+    q.classList.toggle('trial-done', atLimit);
   }
   const gq = $('#gsQuota'); if (gq) gq.textContent = q.textContent;
 }
 function applyLockState() {
   const b = st.billing;
-  // Job Match (the JD panel) needs plan tier 2+ (Pro/Power) regardless of credit balance
-  // — a Free user, or a Starter user, with credits left still can't use it.
-  const jdLocked = !!(b && !b.unlimited && (!b.isPaid || (b.planTier || 0) < 2));
+  // Job Description Match needs Career Pro (tier 3) specifically — Pro (tier 2) does
+  // NOT get this just because it includes Improve ATS Score.
+  const jdLocked = !!(b && !b.unlimited && (b.planTier || 0) < 3);
   const jdTeaser = $('#jdTeaser'); if (jdTeaser) jdTeaser.hidden = !jdLocked;
   const jdBody = $('#jdBody'); if (jdBody) jdBody.classList.toggle('lk-body', jdLocked);
-  // ATS Compatibility is available to anyone (free or paid) as long as credits remain;
-  // it locks only once the active plan's credit pool is actually empty.
-  const exhausted = !!(b && !b.unlimited && b.creditsRemaining != null && b.creditsRemaining <= 0);
-  const atsTeaser = $('#atsTeaser'); if (atsTeaser) atsTeaser.hidden = !exhausted;
-  const atsBody = $('#atsBody'); if (atsBody) atsBody.classList.toggle('lk-body', exhausted);
+  // ATS Compatibility (viewing the score/diagnostics) is NEVER locked for any plan —
+  // only "Improve ATS Score" (a specific action, gated separately via atsImproveBtn/
+  // improveAts()) needs Pro or Career Pro (tier 2+). The ATS panel itself always stays open.
+  const atsTeaser = $('#atsTeaser'); if (atsTeaser) atsTeaser.hidden = true;
+  const atsBody = $('#atsBody'); if (atsBody) atsBody.classList.remove('lk-body');
+  const atsImproveLocked = !!(b && !b.unlimited && (b.planTier || 0) < 2);
+  const btn = $('#atsImproveBtn'); if (btn) btn.title = atsImproveLocked ? 'Improve ATS Score is included in the Pro and Career Pro plans.' : '';
 }
 async function loadPlans() {
   try { const r = await api('GET', '/api/billing/plans'); st.plans = r.plans; } catch (e) { st.plans = null; }
 }
 function planCardHtml(p) {
   const excluded = p.excluded || [];
-  const items = (p.features || []).filter(f => f !== 'Never expires' && !/^\d+ AI credits$/.test(f));
+  const items = (p.features || []).filter(f => f !== 'Resume creation allowance');
   return `<div class="up-plan${p.recommended ? ' rec' : ''}">${p.recommended ? '<span class="tag">Best Value</span>' : ''}
-    <h4>${esc(p.label)}</h4><div class="price">${esc(p.currency)}${p.price}<small> one-time</small></div>
-    <p class="sub" style="margin:2px 0 8px">${p.credits} AI credits · never expires</p>
+    <h4>${esc(p.label)}</h4><div class="price">${esc(p.currency)}${p.price}<small> /month</small></div>
+    <p class="sub" style="margin:2px 0 8px">${esc(p.allowanceLabel || (p.resumeAllowance + ' new resumes / month'))}</p>
     <ul>${items.map(f => `<li${excluded.includes(f) ? ' class="no"' : ''}>${esc(f)}</li>`).join('')}</ul>
     <button class="btn${p.recommended ? '' : ' ghost'}" type="button" data-plan="${esc(p.plan)}">Get ${esc(p.label)}</button></div>`;
 }
 function currentPlanSummary() {
-  const b = st.billing; if (!b) return 'See your plans and AI credits below.';
-  if (b.unlimited) return "You're on an admin account with unlimited AI credits.";
-  const planName = b.isPaid ? planLabel(b.plan) : 'Free Trial';
-  const credits = b.creditsRemaining != null ? b.creditsRemaining : 0;
-  return `Current plan: ${planName} — ${credits} AI credit${credits === 1 ? '' : 's'} remaining. Pick a pack below to top up anytime.`;
+  const b = st.billing; if (!b) return 'See the plans below.';
+  if (b.unlimited) return "You're on an admin account with no resume limit.";
+  const planName = b.isPaid ? planLabel(b.plan) : 'Free';
+  const used = (b.resumesAllocated != null && b.resumesRemaining != null) ? (b.resumesAllocated - b.resumesRemaining) : 0;
+  const alloc = b.resumesAllocated != null ? b.resumesAllocated : (b.isPaid ? '' : 1);
+  const period = b.isPaid ? ' this billing period' : ' (lifetime)';
+  const renewal = (b.isPaid && b.periodEnd) ? ` Your plan renews/ends on ${new Date(b.periodEnd).toLocaleDateString()}.` : '';
+  return `Current plan: ${planName} — ${used} of ${alloc} resume${alloc === 1 ? '' : 's'} created${period}.${renewal} Editing and downloading your existing resumes is never limited.`;
 }
 async function openUpgradeModal(reason) {
   st.lastUpgradeReason = reason;
-  $('#upTitle').textContent = reason === 'locked' ? 'Unlock This Feature' : reason === 'credits' ? "You've used all your AI credits" : reason === 'view' ? 'Your Plan' : 'Your Free Trial Is Over';
+  $('#upTitle').textContent = reason === 'locked' ? 'Unlock This Feature' : reason === 'resume_limit' ? "You've reached your resume limit" : reason === 'view' ? 'Your Plan' : 'Your Free Resume Is Used';
   $('#upSub').textContent = reason === 'locked'
-    ? 'That feature is part of a paid ITC Resume plan. Upgrade to unlock Job Description matching and more AI credits.'
-    : reason === 'credits'
-    ? "You've used all of your AI credits for this plan. Upgrade or renew to keep editing and analyzing your resume."
+    ? 'That feature is part of a higher ITC Resume plan. Upgrade to unlock it.'
+    : reason === 'resume_limit'
+    ? (st.billing && st.billing.isPaid
+        ? "You've used all of your resume creations for this billing period. You can keep editing and downloading your existing resumes — upgrade for more, or wait for your next renewal."
+        : 'Your Free plan includes one resume for the lifetime of your account. You can keep editing and downloading it — upgrade to create another.')
     : reason === 'view'
     ? currentPlanSummary()
-    : "You've used all of your free AI credits. Upgrade ITC Resume to continue improving your resume.";
+    : 'Your Free plan includes one resume. You can keep editing and downloading it — upgrade ITC Resume to create another.';
   if (!st.plans) await loadPlans();
   // Fallback only, used if /api/billing/plans couldn't be reached — kept in sync with
-  // lib/billing.js's PLANS by hand since this copy can't import that server module.
-  const FEATURE_LIST = ['AI resume editing & rewriting', 'ATS Compatibility Score', 'Resume version history', 'Job Description matching', 'AI Job Description tailoring'];
+  // lib/billing.js's PLANS/SELLABLE_PLANS by hand since this copy can't import that
+  // server module.
+  const FEATURE_LIST = ['Resume creation allowance', 'Edit & download your resumes', 'Templates, colour & formatting', 'AI-assisted resume editing', 'View ATS Compatibility score', 'Improve ATS Score', 'Job Description Match', 'AI Job-Description-based tailoring'];
   st.planList = st.plans || [
-    { plan: 'STARTER', label: 'Starter', price: 149, currency: '₹', credits: 10, features: FEATURE_LIST, excluded: ['Job Description matching', 'AI Job Description tailoring'] },
-    { plan: 'PRO', label: 'Pro', price: 299, currency: '₹', credits: 25, recommended: true, features: FEATURE_LIST, excluded: ['AI Job Description tailoring'] },
-    { plan: 'POWER', label: 'Power', price: 499, currency: '₹', credits: 50, features: FEATURE_LIST, excluded: [] }
+    { plan: 'STARTER', label: 'Starter', price: 99, currency: '₹', resumeAllowance: 5, allowanceLabel: '5 new resumes / month', features: FEATURE_LIST, excluded: ['Improve ATS Score', 'Job Description Match', 'AI Job-Description-based tailoring'] },
+    { plan: 'PRO', label: 'Pro', price: 199, currency: '₹', resumeAllowance: 10, allowanceLabel: '10 new resumes / month', recommended: true, features: FEATURE_LIST, excluded: ['Job Description Match', 'AI Job-Description-based tailoring'] },
+    { plan: 'CAREER_PRO', label: 'Career Pro', price: 399, currency: '₹', resumeAllowance: 20, allowanceLabel: '20 new resumes / month', features: FEATURE_LIST, excluded: [] }
   ];
   $('#upGrid').innerHTML = st.planList.map(planCardHtml).join('');
   const d = $('#upgradeDlg'); if (d.showModal) d.showModal(); else d.setAttribute('open', '');
@@ -2392,9 +2449,9 @@ function closeUpgradeModal() { const d = $('#upgradeDlg'); if (d.close) d.close(
 const UPI_ID = 'deviprashanth512005@okhdfcbank';
 const UPI_PAYEE_NAME = 'Prashanth';
 function openUpiModal(planCode) {
-  const p = (st.planList || []).find(x => x.plan === planCode) || { label: planCode, price: '', currency: '₹', credits: '' };
+  const p = (st.planList || []).find(x => x.plan === planCode) || { label: planCode, price: '', currency: '₹', allowanceLabel: '' };
   $('#upiTitle').textContent = 'Pay via UPI — ' + p.label + ' plan';
-  $('#upiSub').textContent = (p.credits ? ('Covers ' + p.credits + ' AI credits. ') : '') + 'Scan the QR code or pay to the UPI ID below with any UPI app.';
+  $('#upiSub').textContent = (p.allowanceLabel ? ('Covers ' + p.allowanceLabel + '. ') : '') + 'Scan the QR code or pay to the UPI ID below with any UPI app.';
   $('#upiAmt').textContent = p.currency + p.price;
   const amt = Number(p.price) || 0;
   const tn = ('ITC Resume ' + p.label + ' plan').slice(0, 50);
@@ -2475,9 +2532,9 @@ async function acctAction(a) {
   else if (a === 'delacct') askForm({ title: 'Delete your account?', desc: 'This permanently deletes your account and all your resumes. This cannot be undone. Download your data first if you want a copy.', ok: 'Delete everything', danger: true, fields: [{ label: 'Enter your password to confirm', type: 'password', ac: 'current-password' }], submit: async v => { await api('DELETE', '/api/me', { password: v[0] }); goLogin(); } });
 }
 async function resumeAction(a) {
-  if (a === 'new') { try { await createResume(); } catch (e) { if (e.code === 'trial_one_resume') openUpgradeModal('locked'); else if (e.code === 'FREE_TRIAL_EXHAUSTED') openUpgradeModal('trial'); else toast(e.message || 'Could not create a resume.'); } }
+  if (a === 'new') { try { await createResume(); } catch (e) { if (e.code === 'resume_limit_reached' || e.code === 'FREE_LIMIT_REACHED') openUpgradeModal('resume_limit'); else toast(e.message || 'Could not create a resume.'); } }
   else if (a === 'rename') { const v = await askForm({ title: 'Rename resume', ok: 'Rename', fields: [{ label: 'Name', value: st.title, max: 80 }] }); if (v && v[0].trim()) { st.title = v[0].trim(); st.titleAuto = false; save(); renderResumeMenu(); } }
-  else if (a === 'dup') { try { await flush(); await createResume(st.title + ' (copy)', { ...payload().data, titleAuto: false, chat: [greetingMsg()], builder: false, builderStep: 'personal', builderPhase: null, builderDraft: null }); } catch (e) { if (e.code === 'trial_one_resume') openUpgradeModal('locked'); else if (e.code === 'FREE_TRIAL_EXHAUSTED') openUpgradeModal('trial'); else toast(e.message || 'Could not duplicate.'); } }
+  else if (a === 'dup') { try { await flush(); await createResume(st.title + ' (copy)', { ...payload().data, titleAuto: false, chat: [greetingMsg()], builder: false, builderStep: 'personal', builderPhase: null, builderDraft: null }); } catch (e) { if (e.code === 'resume_limit_reached' || e.code === 'FREE_LIMIT_REACHED') openUpgradeModal('resume_limit'); else toast(e.message || 'Could not duplicate.'); } }
   else if (a === 'del') {
     const id = st.rid, ok = await askForm({ title: 'Delete this resume?', desc: '"' + st.title + '" will be permanently deleted.', ok: 'Delete', danger: true });
     if (!ok) return;
@@ -2556,10 +2613,9 @@ const ERR = {
   quota_exceeded: 'You have used all your AI edits for today. They reset tomorrow. Your resume is saved, and you can still download it.',
   disabled: 'This account has been disabled. Please contact the admin.',
   too_large: 'That is too large. Use a smaller file or shorter text.',
-  trial_complete: "Your 3 free AI credits have been used. Upgrade to continue editing and analyzing your resume.",
-  FREE_TRIAL_EXHAUSTED: "Your 3 free AI credits have been used. Upgrade to continue editing and analyzing your resume.",
-  credits_exhausted: "You've used all of your AI credits for this plan. Renew or upgrade to keep editing.",
-  locked_feature: 'That feature is part of a paid ITC Resume plan. Upgrade to unlock it.'
+  FREE_LIMIT_REACHED: 'Your Free plan includes one resume. Upgrade to create another — you can keep editing and downloading your current one.',
+  resume_limit_reached: "You've used all of your resume creations for this billing period. Upgrade for a higher plan, or wait for your next renewal — editing and downloading your existing resumes still works.",
+  locked_feature: 'That feature is part of a higher ITC Resume plan. Upgrade to unlock it.'
 };
 const errCopy = e => ERR[e && e.code] || ERR.upstream_error;
 
@@ -2608,20 +2664,20 @@ async function withBusy(label, fn) {
   catch (e) {
     if (e && e.code === 'cancelled') st.chat.push({ role: 'note', text: 'Stopped.', local: true });
     else if (e && e.code === 'invalid_json' && e.text && !/^\s*[{`\[]/.test(e.text)) st.chat.push({ role: 'assistant', text: e.text.trim() });
-    else if (e && (e.code === 'trial_complete' || e.code === 'FREE_TRIAL_EXHAUSTED' || e.code === 'credits_exhausted' || e.code === 'locked_feature')) {
-      // Credits ran out (or a locked feature was hit) mid-answer. The resume and the
-      // whole conversation so far are always saved regardless (see the unconditional
+    else if (e && (e.code === 'resume_limit_reached' || e.code === 'FREE_LIMIT_REACHED' || e.code === 'locked_feature')) {
+      // Either a resume-creation limit or a locked (plan-gated) feature was hit. The
+      // conversation so far is always saved regardless (see the unconditional
       // renderAll()+save() in this function's `finally` below) — say so explicitly while
-      // the builder is active, so a free-trial user who runs out of credits mid-build
-      // knows their progress is not lost and exactly where they'll resume.
+      // the builder is active, so a user who hits their resume limit mid-build knows
+      // their progress is not lost and exactly where they'll resume.
       let msg = errCopy(e);
-      if (st.builder && (e.code === 'trial_complete' || e.code === 'FREE_TRIAL_EXHAUSTED' || e.code === 'credits_exhausted')) {
+      if (st.builder && (e.code === 'resume_limit_reached' || e.code === 'FREE_LIMIT_REACHED')) {
         msg += st.builderPhase === 'form'
           ? ' Nothing is lost — everything you’ve entered is still in the form below. Upgrade, then click "Create my resume" again.'
           : ' Nothing is lost — everything you’ve told me so far is saved. Upgrade and send that last answer again to continue from "' + (BUILDER_STEP_LABELS[st.builderStep] || 'where you left off') + '".';
       }
       st.chat.push({ role: 'assistant', local: true, text: msg });
-      openUpgradeModal(e.code === 'locked_feature' ? 'locked' : (e.code === 'credits_exhausted' ? 'credits' : 'trial'));
+      openUpgradeModal(e.code === 'locked_feature' ? 'locked' : 'resume_limit');
     }
     else { if (!e || !e.code) console.error(e); st.chat.push({ role: 'assistant', error: true, local: true, text: (e && e.code) ? errCopy(e) : (e && e.userMsg) || ERR.upstream_error }); }
   } finally { st.busy = false; st.ctl = null; stopTicker(); renderAll(); save(); }
@@ -3088,12 +3144,12 @@ async function improveResume() {
 
 /* ---------- Improve ATS Score (ATS Compatibility page) ----------
    Deliberately separate from improveResume() above: that one tailors against a job
-   description and is Power-plan gated (billing.TAILOR_GATED_FEATURES / kind:'improve').
-   This one fixes resume-only ATS issues — parsing, structure, formatting, missing
-   evidence — with no job description involved at all, so it is billed as an ordinary
-   AI resume edit (kind:'chat', classified as CONTENT_EDIT) instead: available on the
-   Free Trial and every paid plan while credits remain, same as typing an edit in chat.
-   This is a deliberate choice, not an oversight — see the Final Report for why. */
+   description and is Career-Pro-only (kind:'improve', FEATURES.JOB_TAILOR). This one
+   fixes resume-only ATS issues — parsing, structure, formatting, missing evidence —
+   with no job description involved, and is gated to Pro & Career Pro only
+   (kind:'improve_ats', FEATURES.ATS_IMPROVE) — Free and Starter see a locked
+   upgrade prompt instead of this ever reaching the AI. Viewing the ATS score itself
+   stays available to every plan regardless (see applyLockState). */
 function atsIssueList(ats) {
   // Same test objects the score itself and the "Recommended fixes" panel already use —
   // not a second, independently-decided idea of what's wrong with the resume.
@@ -3119,14 +3175,22 @@ function renderAtsImprove() {
 }
 let atsImproveBusy = false;
 async function improveAts() {
-  if (atsImproveBusy) return; // guards against a double-click submitting two AI calls/credits
+  if (atsImproveBusy) return; // guards against a double-click submitting two AI calls
   if (!ai) { toast('AI editing is not available right now.'); return; }
   if (isEmpty(st.resume)) { toast('Add your resume first.'); return; }
+  // Pro & Career Pro only — never call the paid optimization endpoint before
+  // checking authorization. Live server check (not just the cached pill in
+  // st.billing), same pattern as the Job Match gate below.
+  atsImproveBusy = true;
+  try {
+    const r = await api('GET', '/api/billing/feature/ATS_IMPROVE');
+    st.billing = Object.assign({}, st.billing, r.billing); renderBilling(); applyLockState();
+    if (!r.allowed) { atsImproveBusy = false; openUpgradeModal('locked'); return; }
+  } catch (e) { atsImproveBusy = false; toast('Could not verify your plan. Check your connection and try again.'); return; }
   const startRid = st.rid; // if the user switches resumes while this is in flight, the result below must be discarded, not applied to the wrong resume
   const beforeAts = computeATSCompatibility(st.resume, st.importMeta);
   const issues = atsIssueList(beforeAts);
-  if (!issues.length) { $('#atsImproveNote').textContent = 'No fixable ATS issues were found — every applicable check already passes.'; return; }
-  atsImproveBusy = true;
+  if (!issues.length) { atsImproveBusy = false; $('#atsImproveNote').textContent = 'No fixable ATS issues were found — every applicable check already passes.'; return; }
   const btn = $('#atsImproveBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Improving…'; }
   $('#atsImproveNote').textContent = 'Analyzing your resume and drafting fixes — this can take a few seconds…';
   const issueLines = issues.slice(0, 12).map(t => '- [' + t.status + '] ' + t.description + (t.evidence ? ' — ' + t.evidence : '') + (t.remediation ? ' (Fix: ' + t.remediation + ')' : ''));
@@ -3150,7 +3214,7 @@ async function improveAts() {
     'Improve this resume to fix the ATS issues listed above without inventing new facts.'
   ];
   try {
-    const out = await ai.json(promptLines.join('\n'), { kind: 'chat' });
+    const out = await ai.json(promptLines.join('\n'), { kind: 'improve_ats' });
     if (st.rid !== startRid) { toast('You switched resumes while this was running — discarded that result.'); atsImproveBusy = false; if (btn) { btn.disabled = false; btn.textContent = 'Improve ATS Score'; } renderBilling(); return; }
     let next = norm(out && out.resume ? out.resume : out);
     if (isEmpty(next)) throw new Error('empty');
@@ -3486,7 +3550,7 @@ function wire() {
     }
   });
   $('#jdUnlockBtn').addEventListener('click', () => openUpgradeModal('locked'));
-  const atsUnlockBtn = $('#atsUnlockBtn'); if (atsUnlockBtn) atsUnlockBtn.addEventListener('click', () => openUpgradeModal(st.billing && st.billing.isPaid ? 'credits' : 'trial'));
+  const atsUnlockBtn = $('#atsUnlockBtn'); if (atsUnlockBtn) atsUnlockBtn.addEventListener('click', () => openUpgradeModal('locked'));
   $('#upCancel').addEventListener('click', closeUpgradeModal);
   $('#upGrid').addEventListener('click', e => {
     const b = e.target.closest('button[data-plan]'); if (!b) return;
@@ -3544,7 +3608,7 @@ function wire() {
     st.resumes = await api('GET', '/api/resumes');
     if (!st.resumes.length) {
       try { await createResume(); }
-      catch (e) { if (e.code === 'FREE_TRIAL_EXHAUSTED' || e.code === 'trial_one_resume') { $('#rsTitle').textContent = 'No resume yet'; openUpgradeModal(e.code === 'FREE_TRIAL_EXHAUSTED' ? 'trial' : 'locked'); } else throw e; }
+      catch (e) { if (e.code === 'FREE_LIMIT_REACHED' || e.code === 'resume_limit_reached') { $('#rsTitle').textContent = 'No resume yet'; openUpgradeModal('resume_limit'); } else throw e; }
     } else { applyLoaded(await api('GET', '/api/resumes/' + st.resumes[0].id)); renderAll(); renderResumeMenu(); }
     st.availChecked = true; $('#prog').hidden = true; setView('chat');
     if (me.user.must_change) changePassword(true);
