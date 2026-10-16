@@ -385,9 +385,21 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
 .ann{background:var(--tint);padding:7px 16px;font-size:13.5px;text-align:center;border-bottom:1px solid var(--line)}
 .field{display:flex;flex-direction:column;gap:5px;margin:0 0 14px}
 .field label{font-size:13.5px;font-weight:500}
-.field input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;outline:0}
-.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.field label .opt{color:var(--muted);font-weight:400;font-size:12px}
+.field input,.field textarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;outline:0;font-family:inherit}
+.field textarea{resize:vertical;min-height:60px}
+.field input:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
 .err{color:var(--bad);font-size:13.5px;margin:0 0 6px}
+/* ---- "Start from scratch" structured resume-details composer (replaces the old
+   one-question-at-a-time chat opening) — lives inside #paneChat, in the same spot
+   #msgs/#composer normally occupy, toggled by renderBuilderForm(). ---- */
+.bform{flex:1;min-height:0;overflow:auto;padding:14px 14px 10px}
+.bform-head h3{margin:0 0 4px;font:400 22px/1.2 var(--serif)}
+.bform-head .sub{margin:0 0 16px;color:var(--muted);font-size:13.5px}
+.bform-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.bform .field{margin-bottom:12px}
+.bform-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:6px}
+@media (max-width:819px){.bform-grid{grid-template-columns:1fr}}
 .btn.danger{background:var(--bad);color:#fff}
 dialog .dsc{margin:0 0 14px;color:var(--muted);font-size:13.5px}
 dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
@@ -548,6 +560,30 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
     <aside class="left">
       <section class="pane" id="paneChat">
         <div class="banner" id="banner" hidden></div>
+        <div class="bform" id="builderForm" hidden>
+          <div class="bform-head">
+            <h3>Build your resume</h3>
+            <p class="sub">Fill in your details below. Your resume will be created automatically.</p>
+          </div>
+          <div class="bform-grid">
+            <div class="field"><label for="bfName">Full name</label><input id="bfName" type="text" autocomplete="name" maxlength="120"></div>
+            <div class="field"><label for="bfEmail">Email address</label><input id="bfEmail" type="email" autocomplete="email" maxlength="160"></div>
+            <div class="field"><label for="bfPhone">Phone number</label><input id="bfPhone" type="tel" autocomplete="tel" maxlength="40"></div>
+            <div class="field"><label for="bfRole">Target job role</label><input id="bfRole" type="text" maxlength="120" placeholder="e.g. Data Analyst"></div>
+            <div class="field"><label for="bfEdu">Education / qualification</label><input id="bfEdu" type="text" maxlength="160" placeholder="e.g. B.Tech Computer Science"></div>
+            <div class="field"><label for="bfCollege">College / institution &amp; graduation year</label><input id="bfCollege" type="text" maxlength="160" placeholder="e.g. Anna University, 2024"></div>
+            <div class="field"><label for="bfMarks">Marks, percentage, GPA or CGPA <span class="opt">(optional)</span></label><input id="bfMarks" type="text" maxlength="60"></div>
+            <div class="field"><label for="bfLinkedin">LinkedIn profile URL <span class="opt">(optional)</span></label><input id="bfLinkedin" type="url" maxlength="200" placeholder="linkedin.com/in/…"></div>
+          </div>
+          <div class="field"><label for="bfSkills">Technical &amp; relevant soft skills</label><textarea id="bfSkills" rows="2" placeholder="e.g. Python, SQL, Power BI, teamwork, communication"></textarea></div>
+          <div class="field"><label for="bfCerts">Certifications <span class="opt">(optional)</span></label><textarea id="bfCerts" rows="2" placeholder="One per line — name, issuer, year"></textarea></div>
+          <div class="field"><label for="bfProjects">Projects <span class="opt">(optional)</span></label><textarea id="bfProjects" rows="3" placeholder="Name, what you built, technologies used, your contribution"></textarea></div>
+          <div class="field"><label for="bfExp">Work experience, internship or freelance work <span class="opt">(optional)</span></label><textarea id="bfExp" rows="3" placeholder="Role, company, dates, and what you did"></textarea></div>
+          <p class="err" id="bfErr" hidden></p>
+          <div class="bform-actions">
+            <button class="btn" id="bfSubmit" type="button">Create my resume</button>
+          </div>
+        </div>
         <div id="msgs" aria-live="polite"></div>
         <div class="chips" id="chips"></div>
         <div class="composer" id="composer">
@@ -1983,45 +2019,39 @@ OUTPUT: only one JSON object with keys in this order: {"reply": string, "changes
 
 /* ---------- guided "Start from scratch" builder ----------
    A dedicated system prompt + a small amount of client-side state (st.builder,
-   st.builderStep), layered on top of the exact same send()/applyResume()/save()
-   pipeline ordinary chat-editing already uses — no separate resume record, no
-   separate AI endpoint, no separate persistence mechanism. The guided behavior
-   (one question at a time, adaptive ordering, no fabrication, skip support) lives
-   entirely in this prompt; the app just asks for it and reuses what already works. */
-const BUILD_RULES = `You are running a GUIDED, step-by-step resume-building conversation for someone starting from scratch with no resume yet. The user talks to you in English, or in Tanglish (Tamil written using plain English letters, no Tamil or Devanagari script).
+   st.builderStep, st.builderPhase), layered on top of the exact same
+   send()/applyResume()/save() pipeline ordinary chat-editing already uses — no
+   separate resume record, no separate AI endpoint, no separate persistence
+   mechanism. The user's first turn is now a single bulk submission from the
+   structured composer (#builderForm, see submitBuilderForm()) rather than a
+   question-by-question chat interview; this prompt organizes that one message
+   into a complete first draft, then — only if useful — asks concise adaptive
+   follow-up questions in the ordinary chat composer afterward. It never goes
+   back to asking every field one by one. */
+const BUILD_RULES = `You are helping build a resume from scratch. The user's latest message is either (a) a BULK submission of several resume details at once from a structured form, or (b) a short follow-up answer/correction in ordinary chat. The user talks to you in English, or in Tanglish (Tamil written using plain English letters, no Tamil or Devanagari script).
 
-GOAL: ask ONE simple question at a time, in plain friendly language, and progressively fill in the resume as the user answers. Do not dump a list of questions in one message.
+GOAL: organize whatever the user has given you — in this turn and any earlier ones — into a complete, honest, professional first-draft resume immediately. Do not ask the user to repeat information already given, and do not turn this into a rigid one-question-at-a-time interview.
 
-TOPICS, roughly in this order, but adapt — do not follow this as a rigid fixed script:
-1. Personal details: full name, email, phone, city/state (optional), LinkedIn (optional, never require it), portfolio/GitHub (optional).
-2. Target role and career stage: what role they're applying for, whether they're a fresher/student/experienced professional/career changer, whether they want a professional summary.
-3. Education: degree, course/specialization, institution, start/end year, GPA/marks (ask only if it seems relevant — never assume everyone wants to include it).
-4. Skills: technical, tools/software, and relevant soft skills. If they're unsure what to list, suggest a few examples relevant to their target role and ask which they genuinely have.
-5. Certifications (optional): name, issuer, year. Skip entirely if they say they have none.
-6. Projects (optional): name, short description, technologies, their actual contribution, results only if they state one.
-7. Work experience / internships: title, company, start/end dates or current, responsibilities, achievements (only with real evidence). If they're a fresher with no work experience, suggest academic projects, internships, volunteering, or extracurricular leadership instead, and move on.
-8. Additional sections (optional, keep brief): achievements/awards, extracurriculars, leadership/volunteering, languages, publications.
+FIELDS the user may have supplied (in this message, or earlier in CURRENT_RESUME_JSON): full name, email, phone, target job role, education/qualification, college/institution and graduation year, marks/percentage/GPA/CGPA (optional), LinkedIn URL (optional), skills, certifications (optional), projects (optional), work experience/internship/freelance work (optional). Projects, education, certifications and experience may arrive as a short free-text block describing one or several entries — split that block into separate, properly structured entries in "resume" yourself; do not ask the user to reformat it first.
 
-ADAPTIVE BEHAVIOR (important):
-- Use their answers to decide the next relevant question — e.g. a fresher should move quickly into education/skills/projects rather than being asked about work history in detail; someone with experience should be asked about their latest role first.
+ADAPTIVE FOLLOW-UP (only after the first draft exists, and only when genuinely useful):
 - If a field is already filled in CURRENT_RESUME_JSON or was already given earlier in this conversation, do NOT ask for it again.
-- If one message contains several pieces of information, extract and save everything it supports, then move on to the next genuinely missing question.
-- If an answer is ambiguous, ask one short clarifying question instead of guessing.
-- Let the user skip anything by saying so ("skip", "none", "n/a", "I don't have any", etc.) — accept it immediately and move to the next relevant topic, do not push back.
-- Let the user correct or change an earlier answer at any point — update that field in place, do not restart the conversation.
+- Ask at most one or two short, concrete follow-up questions per turn — e.g. a missing graduation year, or whether a fresher with no work experience wants to list academic projects/internships/volunteering instead. Never dump a long list of questions.
+- If the target role is known, you may suggest relevant sections or skills to confirm, but never claim or add a skill the user has not confirmed.
+- If a field is empty or the user skips it ("skip", "none", "n/a", "I don't have any", etc.), accept that immediately and leave it empty — do not push back or re-ask.
+- Let the user correct or change an earlier answer at any point — update that field in place, do not restart.
 
 RULES (never break these)
 1. NEVER invent facts: no employer, job title, dates, degree, certification, tool, skill, metric or achievement the user did not actually tell you. If a bullet would be stronger with a number or detail they haven't given, ask for it in "reply" — never guess or fabricate one.
 2. Only add a skill the user has explicitly confirmed they have — never add one just because it fits the target role.
-3. Keep "reply" short and warm — at most 2-3 sentences, ending in the next question (or, once a first draft is ready, a short completion note).
+3. Keep "reply" short and warm — at most 2-3 sentences. On the first turn (the bulk submission), confirm the draft is ready and name at most one or two genuinely useful follow-ups, or none if nothing is missing.
 4. Never ask for sensitive information such as government ID numbers, passwords, or bank details.
 5. Validate email/URL formats loosely where given, but never block on an optional field — accept a skip.
 6. LANGUAGE OF "reply": Default to English. If the user's latest message is clearly in Tamil or a Tamil/English mix, reply in Tanglish — Tamil words spelled out using plain English (Latin) letters only. NEVER use Tamil script or Devanagari/Hindi script. If there is no clear signal of Tamil/Tanglish, use English.
 7. Write the resume content itself in professional English.
 8. "resume" must always be the COMPLETE resume so far (not just the newest fields) using exactly the schema below, carrying forward everything already collected — never drop previously-saved information.
-9. Once you have enough for a genuinely useful first draft (at minimum: name, one contact method, and at least one of education/experience/projects, plus some skills), say so warmly in "reply" (e.g. mention the first draft is ready and ask if they'd like to keep adding detail), and set "complete" to true. You may keep gathering more information in later turns after that — it does not end the conversation.
-10. Until a useful first draft is possible, set "complete" to false.
-11. Always set "step" to whichever of these best matches the CURRENT question you are asking (or just finished covering): "personal", "objective", "education", "skills", "certifications", "projects", "experience", "additional". Once a usable first draft exists (whether or not you keep asking more), you may use "done" instead.
+9. If the user supplied enough for a genuinely useful first draft (at minimum: name, plus at least one of education/experience/projects, plus some skills if given), set "complete" to true on this very turn — do not wait for additional turns once that bar is met. If even that minimum is missing (e.g. only a name was given), still build the best honest draft possible from what exists and set "complete" to false, asking in "reply" for the one or two things most needed.
+10. Always set "step" to whichever of these best matches what you just processed: "personal", "objective", "education", "skills", "certifications", "projects", "experience", "additional", or "done" once a usable first draft exists.
 
 SCHEMA
 ${SCHEMA}
@@ -2029,24 +2059,135 @@ ${SCHEMA}
 OUTPUT: only one JSON object with keys in this order: {"reply": string, "changes": [short English descriptions of what changed, max 4], "resume": the complete resume object using the schema above (always include it, even if little has changed yet), "complete": boolean, "step": one of "personal"|"objective"|"education"|"skills"|"certifications"|"projects"|"experience"|"additional"|"done"}`;
 const BUILDER_STEP_ORDER = ['personal', 'objective', 'education', 'skills', 'certifications', 'projects', 'experience', 'additional'];
 const BUILDER_STEP_LABELS = { personal: 'Personal details', objective: 'Career objective', education: 'Education', skills: 'Skills', certifications: 'Certifications', projects: 'Projects', experience: 'Work experience', additional: 'Additional details', done: 'Draft ready' };
+// Shown once the structured form has been submitted and the user is in ordinary
+// follow-up chat (st.builder still true, st.builderPhase === 'chat') — a single
+// generic line, since there is no longer a fixed numbered step sequence to report.
 function builderBannerText() {
-  const step = st.builderStep || 'personal';
-  if (step === 'done') return "Your first draft is ready — keep chatting to add more, or open the Resume tab to see it.";
-  const idx = BUILDER_STEP_ORDER.indexOf(step);
-  return 'Building your resume — Step ' + (idx >= 0 ? idx + 1 : 1) + ' of ' + BUILDER_STEP_ORDER.length + ': ' + (BUILDER_STEP_LABELS[step] || 'Getting started');
+  return st.builderStep === 'done'
+    ? "Your first draft is ready — keep chatting to add more, or open the Resume tab to see it."
+    : "Building your resume — keep chatting to add more detail, or open the Resume tab to see your draft.";
+}
+// Opens the structured "Build your resume" composer (#builderForm) and fills it
+// from any previously-saved draft (st.builderDraft) — e.g. after a failed
+// submission, or after refreshing the page before submitting.
+function openBuilderForm() {
+  const v = st.builderDraft || {};
+  const set = (id, val) => { const el = $(id); if (el) el.value = val || ''; };
+  set('#bfName', v.name); set('#bfEmail', v.email); set('#bfPhone', v.phone); set('#bfRole', v.role);
+  set('#bfEdu', v.edu); set('#bfCollege', v.college); set('#bfMarks', v.marks); set('#bfLinkedin', v.linkedin);
+  set('#bfSkills', v.skills); set('#bfCerts', v.certs); set('#bfProjects', v.projects); set('#bfExp', v.exp);
+  const err = $('#bfErr'); if (err) err.hidden = true;
 }
 function startBuilder() {
   if (st.busy) return;
-  st.builder = true; st.builderStep = 'personal';
-  st.chat = [{ role: 'assistant', text: "Hi! I'll help you create a professional resume from scratch. I'll ask a few simple questions and build your resume as we go — you can skip anything that doesn't apply.\n\nLet's start with the basics: what's your full name?", local: true }];
-  setView('chat'); renderAll(); save(); $('#inp').focus();
+  st.builder = true; st.builderPhase = 'form'; st.builderStep = 'personal'; st.builderDraft = null;
+  setView('chat'); openBuilderForm(); renderAll(); save();
+  const nameEl = $('#bfName'); if (nameEl) nameEl.focus();
+}
+function builderFormActive() { return st.builder && st.builderPhase === 'form'; }
+// Toggles the structured composer vs. the ordinary #msgs/#chips/#composer chat UI.
+// Called from updateAvail() (part of renderAll()) so it always reflects current state.
+function renderBuilderForm() {
+  const show = builderFormActive();
+  const f = $('#builderForm'); if (f) f.hidden = !show;
+  $('#msgs').hidden = show; $('#chips').hidden = show || st.busy; $('#composer').hidden = show;
+  const submitBtn = $('#bfSubmit'); if (submitBtn) submitBtn.disabled = st.busy;
+}
+function bfVal(id) { const el = $(id); return el ? el.value.trim() : ''; }
+function builderFormValues() {
+  return {
+    name: bfVal('#bfName'), email: bfVal('#bfEmail'), phone: bfVal('#bfPhone'), role: bfVal('#bfRole'),
+    edu: bfVal('#bfEdu'), college: bfVal('#bfCollege'), marks: bfVal('#bfMarks'), linkedin: bfVal('#bfLinkedin'),
+    skills: bfVal('#bfSkills'), certs: bfVal('#bfCerts'), projects: bfVal('#bfProjects'), exp: bfVal('#bfExp'),
+  };
+}
+// Loose, non-blocking validation — only catches clearly malformed optional fields
+// (spec: "never block on an optional field" beyond format sanity) and an entirely
+// empty submission; nothing else is mandatory ("Do not force the user to complete
+// every field").
+function validateBuilderForm(v) {
+  if (!Object.values(v).some(Boolean)) return 'Please fill in at least a few details before creating your resume.';
+  if (!v.name) return 'Please add your full name to continue.';
+  if (v.email && !/^\S+@\S+\.\S{2,}$/.test(v.email)) return "That email address doesn't look right.";
+  if (v.linkedin && !/linkedin\.com\//i.test(v.linkedin)) return "That doesn't look like a LinkedIn profile link — paste the full URL, or leave it blank.";
+  return '';
+}
+function builderFormToText(v) {
+  const L = [];
+  if (v.name) L.push('Full name: ' + v.name);
+  if (v.email) L.push('Email: ' + v.email);
+  if (v.phone) L.push('Phone: ' + v.phone);
+  if (v.role) L.push('Target job role: ' + v.role);
+  if (v.edu) L.push('Education / qualification: ' + v.edu);
+  if (v.college) L.push('College / institution and graduation year: ' + v.college);
+  if (v.marks) L.push('Marks / percentage / GPA / CGPA: ' + v.marks);
+  if (v.linkedin) L.push('LinkedIn: ' + v.linkedin);
+  if (v.skills) L.push('Skills:\n' + v.skills);
+  if (v.certs) L.push('Certifications:\n' + v.certs);
+  if (v.projects) L.push('Projects:\n' + v.projects);
+  if (v.exp) L.push('Work experience / internships / freelance work:\n' + v.exp);
+  return L.join('\n');
+}
+// Single-submission path: one AI call (same billing/credit rule as any other
+// CONTENT_EDIT — see classifyIntent's "Update my resume with..." framing below),
+// reusing send()'s exact applyResume()/snapshotVersion()/save() pipeline so there is
+// no second, separate resume-creation code path to keep in sync.
+async function submitBuilderForm() {
+  if (st.busy) return;
+  const v = builderFormValues();
+  const problem = validateBuilderForm(v);
+  const errEl = $('#bfErr');
+  if (problem) { errEl.textContent = problem; errEl.hidden = false; return; }
+  errEl.hidden = true;
+  const text = builderFormToText(v);
+  // Persist the entered details immediately, before the AI call — so a failure
+  // (network error, credit exhaustion) or a refresh mid-request can never lose what
+  // the user typed; openBuilderForm() repopulates every field from exactly this.
+  st.builderDraft = v; save();
+  const finalTurn = 'CURRENT_RESUME_JSON:\n' + JSON.stringify(st.resume) +
+    '\n\nTARGET_JOB_DESCRIPTION (may be empty):\n' + st.jd.slice(0, 6000) +
+    '\n\nUSER_MESSAGE:\nUpdate my resume with this answer: here are my resume details — please create my first resume draft from exactly this information:\n' + text;
+  const turns = [{ role: 'user', content: BUILD_RULES }, { role: 'user', content: finalTurn }];
+  const chatLenBefore = st.chat.length;
+  st.chat.push({ role: 'note', text: 'Submitted your resume details.', local: true });
+  const submitBtn = $('#bfSubmit'), prevLabel = submitBtn.textContent;
+  submitBtn.disabled = true; submitBtn.textContent = 'Creating…';
+  await withBusy('Creating your resume', async signal => {
+    const out = await ai.json(turns, { kind: 'chat', cache: false, signal, onText: ({ text: raw }) => { const r = peekReply(raw); if (r) setLive(r); } });
+    const reply = S(out && out.reply) ? String(out.reply).trim() : 'Your resume draft is ready.';
+    let changes = [];
+    if (out && out.resume && typeof out.resume === 'object') {
+      const nr = norm(out.resume);
+      if (!isEmpty(nr)) { applyResume(nr, true); changes = A(out.changes).map(S).filter(Boolean).slice(0, 4); if (!changes.length) changes = ['Resume created from your submitted details']; snapshotVersion('Created from Start from scratch'); }
+    }
+    if (out) { if (BUILDER_STEP_ORDER.includes(out.step) || out.step === 'done') st.builderStep = out.step; if (out.complete === true) st.builder = false; }
+    // Success: the structured composer's job is done — hand off to the ordinary chat
+    // composer (adaptive follow-ups, if any, continue there; see BUILD_RULES).
+    st.builderPhase = 'chat'; st.builderDraft = null;
+    st.chat.push({ role: 'assistant', text: reply, changes });
+    toast(changes.length ? 'Resume created. Open the Resume tab to see it.' : 'Got it — check the Resume tab.');
+  });
+  // On failure, st.builderPhase/st.builderDraft are untouched above (still 'form' with
+  // the entered values saved), so the form reopens with everything intact; on success
+  // it flips to the ordinary composer. Either way, reflect it immediately.
+  submitBtn.textContent = prevLabel;
+  if (st.builderPhase === 'form') {
+    // The form (not #msgs) is what's visible right now, so a failure's message —
+    // pushed to st.chat by withBusy's own catch handler (credit exhaustion, a
+    // network error, etc.) — must also surface here, or the user would just see
+    // the form reappear with no explanation of what happened to their submission.
+    const appended = st.chat.slice(chatLenBefore).filter(m => m.role === 'assistant' || (m.role === 'note' && !/^Submitted /.test(m.text)));
+    const last = appended[appended.length - 1];
+    if (last) { errEl.textContent = last.text; errEl.hidden = false; }
+  }
+  renderBuilderForm();
 }
 
 const SAMPLE = { name: 'Priya Sharma', headline: 'Data Analyst', contact: { email: 'priya.sharma@example.com', phone: '+91 98765 43210', location: 'Chennai, India', linkedin: 'linkedin.com/in/priya-sharma' }, summary: 'Data analyst with 2 years of experience turning sales data into clear dashboards and reports using SQL and Power BI. Comfortable presenting insights to non-technical managers.', skills: [{ group: 'Languages', items: ['SQL', 'Python'] }, { group: 'Tools', items: ['Power BI', 'Excel', 'Git', 'Jira'] }], experience: [{ title: 'Data Analyst', company: 'Brightline Retail', location: 'Chennai', start: 'Jul 2023', end: 'Present', bullets: ['Built 10 Power BI dashboards used by 35 store managers, cutting weekly reporting time by 30%.', 'Wrote SQL queries on 2M+ rows to find slow-moving stock, helping reduce dead inventory by 12%.', 'Automated the Monday sales report with Python, saving the team 5 hours every week.'] }], projects: [{ name: 'Customer churn prediction', link: '', tech: 'Python, scikit-learn', bullets: ['Predicted churn with 86% accuracy on 50,000 customer records.'] }], education: [{ degree: 'B.Sc. Statistics', school: 'Loyola College', location: 'Chennai', year: '2023', details: '' }], certifications: ['Microsoft PL-300: Power BI Data Analyst'], achievements: [], extra: [{ heading: 'Languages', items: ['Tamil', 'English', 'Hindi'] }] };
 const ACCENTS = [{ n: 'Ink', v: '#111111' }, { n: 'Navy', v: '#1F3A5F' }, { n: 'Teal', v: '#0F6B63' }, { n: 'Maroon', v: '#7A1F3D' }, { n: 'Indigo', v: '#3B3F99' }];
 const PH = ['Python skill add pannu…', 'Summary-a innum better-a maathu…', 'Enga project-a resume-la add pannunga…', 'Make my bullets sound stronger…', 'Company name maathi, dates fix pannu…'];
 
-const st = { resume: norm({}), prev: [], chat: [], jd: '', tpl: 'classic', accent: null, ats: null, improve: null, atsImprove: null, importMeta: null, view: 'chat', busy: false, ctl: null, hlBase: null, fresh: false, liveText: '', liveStreaming: false, liveStart: 0, timer: null, availChecked: false, sidebarQuery: '', builder: false, builderStep: 'personal' };
+const st = { resume: norm({}), prev: [], chat: [], jd: '', tpl: 'classic', accent: null, ats: null, improve: null, atsImprove: null, importMeta: null, view: 'chat', busy: false, ctl: null, hlBase: null, fresh: false, liveText: '', liveStreaming: false, liveStart: 0, timer: null, availChecked: false, sidebarQuery: '', builder: false, builderStep: 'personal', builderPhase: null, builderDraft: null };
 const accentNow = () => st.accent || (st.tpl === 'clean' ? '#1F3A5F' : '#111111');
 
 /* ---------- talking to this server ---------- */
@@ -2105,7 +2246,7 @@ let dirty = false, saveT = null;
 const greetingMsg = () => ({ role: 'assistant', text: GREETING, local: true });
 function setSaveState(t) { const e = $('#saveState'); if (e) e.textContent = t; }
 function autoTitle() { if (st.titleAuto && st.resume.name) st.title = st.resume.name + (st.resume.headline ? ' \u2013 ' + st.resume.headline : ''); return st.title.slice(0, 80); }
-function payload() { return { title: autoTitle(), data: { resume: st.resume, prev: st.prev.slice(-6), versions: st.versions.slice(-25), chat: st.chat.slice(-40), jd: st.jd, tpl: st.tpl, accent: st.accent, ats: st.ats, importMeta: st.importMeta, titleAuto: st.titleAuto, builder: st.builder, builderStep: st.builderStep } }; }
+function payload() { return { title: autoTitle(), data: { resume: st.resume, prev: st.prev.slice(-6), versions: st.versions.slice(-25), chat: st.chat.slice(-40), jd: st.jd, tpl: st.tpl, accent: st.accent, ats: st.ats, importMeta: st.importMeta, titleAuto: st.titleAuto, builder: st.builder, builderStep: st.builderStep, builderPhase: st.builderPhase, builderDraft: st.builderDraft } }; }
 function save() { if (!st.rid) return; dirty = true; setSaveState('Saving\u2026'); clearTimeout(saveT); saveT = setTimeout(() => flush(), 900); }
 async function flush(keepalive) {
   if (!dirty || !st.rid) return; clearTimeout(saveT); dirty = false;
@@ -2124,7 +2265,9 @@ function applyLoaded(rec) {
   st.resume = norm(d.resume); st.prev = (d.prev || []).map(norm); st.versions = Array.isArray(d.versions) ? d.versions : []; st.chat = Array.isArray(d.chat) && d.chat.length ? d.chat : [greetingMsg()];
   st.jd = d.jd || ''; st.tpl = d.tpl === 'clean' ? 'clean' : 'classic'; st.accent = ACCENTS.some(a => a.v === d.accent) ? d.accent : null; st.ats = d.ats || null; st.importMeta = d.importMeta || null;
   st.builder = !!d.builder; st.builderStep = d.builderStep || 'personal';
+  st.builderPhase = d.builderPhase || null; st.builderDraft = d.builderDraft || null;
   st.hlBase = null; st.fresh = false; st.improve = null; st.atsImprove = null; $('#jd').value = st.jd; setSaveState('');
+  if (st.builderPhase === 'form') openBuilderForm();
 }
 async function openResume(id) {
   if (st.busy) { toast('Wait for the current edit to finish.'); return; }
@@ -2334,7 +2477,7 @@ async function acctAction(a) {
 async function resumeAction(a) {
   if (a === 'new') { try { await createResume(); } catch (e) { if (e.code === 'trial_one_resume') openUpgradeModal('locked'); else if (e.code === 'FREE_TRIAL_EXHAUSTED') openUpgradeModal('trial'); else toast(e.message || 'Could not create a resume.'); } }
   else if (a === 'rename') { const v = await askForm({ title: 'Rename resume', ok: 'Rename', fields: [{ label: 'Name', value: st.title, max: 80 }] }); if (v && v[0].trim()) { st.title = v[0].trim(); st.titleAuto = false; save(); renderResumeMenu(); } }
-  else if (a === 'dup') { try { await flush(); await createResume(st.title + ' (copy)', { ...payload().data, titleAuto: false, chat: [greetingMsg()], builder: false, builderStep: 'personal' }); } catch (e) { if (e.code === 'trial_one_resume') openUpgradeModal('locked'); else if (e.code === 'FREE_TRIAL_EXHAUSTED') openUpgradeModal('trial'); else toast(e.message || 'Could not duplicate.'); } }
+  else if (a === 'dup') { try { await flush(); await createResume(st.title + ' (copy)', { ...payload().data, titleAuto: false, chat: [greetingMsg()], builder: false, builderStep: 'personal', builderPhase: null, builderDraft: null }); } catch (e) { if (e.code === 'trial_one_resume') openUpgradeModal('locked'); else if (e.code === 'FREE_TRIAL_EXHAUSTED') openUpgradeModal('trial'); else toast(e.message || 'Could not duplicate.'); } }
   else if (a === 'del') {
     const id = st.rid, ok = await askForm({ title: 'Delete this resume?', desc: '"' + st.title + '" will be permanently deleted.', ok: 'Delete', danger: true });
     if (!ok) return;
@@ -2465,7 +2608,21 @@ async function withBusy(label, fn) {
   catch (e) {
     if (e && e.code === 'cancelled') st.chat.push({ role: 'note', text: 'Stopped.', local: true });
     else if (e && e.code === 'invalid_json' && e.text && !/^\s*[{`\[]/.test(e.text)) st.chat.push({ role: 'assistant', text: e.text.trim() });
-    else if (e && (e.code === 'trial_complete' || e.code === 'FREE_TRIAL_EXHAUSTED' || e.code === 'credits_exhausted' || e.code === 'locked_feature')) { st.chat.push({ role: 'assistant', local: true, text: errCopy(e) }); openUpgradeModal(e.code === 'locked_feature' ? 'locked' : (e.code === 'credits_exhausted' ? 'credits' : 'trial')); }
+    else if (e && (e.code === 'trial_complete' || e.code === 'FREE_TRIAL_EXHAUSTED' || e.code === 'credits_exhausted' || e.code === 'locked_feature')) {
+      // Credits ran out (or a locked feature was hit) mid-answer. The resume and the
+      // whole conversation so far are always saved regardless (see the unconditional
+      // renderAll()+save() in this function's `finally` below) — say so explicitly while
+      // the builder is active, so a free-trial user who runs out of credits mid-build
+      // knows their progress is not lost and exactly where they'll resume.
+      let msg = errCopy(e);
+      if (st.builder && (e.code === 'trial_complete' || e.code === 'FREE_TRIAL_EXHAUSTED' || e.code === 'credits_exhausted')) {
+        msg += st.builderPhase === 'form'
+          ? ' Nothing is lost — everything you’ve entered is still in the form below. Upgrade, then click "Create my resume" again.'
+          : ' Nothing is lost — everything you’ve told me so far is saved. Upgrade and send that last answer again to continue from "' + (BUILDER_STEP_LABELS[st.builderStep] || 'where you left off') + '".';
+      }
+      st.chat.push({ role: 'assistant', local: true, text: msg });
+      openUpgradeModal(e.code === 'locked_feature' ? 'locked' : (e.code === 'credits_exhausted' ? 'credits' : 'trial'));
+    }
     else { if (!e || !e.code) console.error(e); st.chat.push({ role: 'assistant', error: true, local: true, text: (e && e.code) ? errCopy(e) : (e && e.userMsg) || ERR.upstream_error }); }
   } finally { st.busy = false; st.ctl = null; stopTicker(); renderAll(); save(); }
 }
@@ -2530,8 +2687,16 @@ function localTemplateMatch(text) {
 }
 // "undo that" / "revert" / "put it back" typed in chat uses the same local Undo
 // stack as the Undo button — never an AI call, so it never costs a credit.
+// Gated to short messages (<=8 words, matching lib/billing.js's server-side UNDO_RE
+// guard): a real undo command is short, while these same words also show up incidentally
+// in genuine resume content a user is dictating — e.g. "I built a text editor with an
+// undo feature", "had to revert a bad deployment", "decided to go back and finish my
+// degree". Without this guard, such an answer (very plausible during the guided
+// "Start from scratch" builder, where answers are full sentences) would be silently
+// intercepted as an Undo command instead of being sent to the AI at all, discarding it.
 function localUndoMatch(text) {
-  return /\b(undo|revert|put it back|restore (the|my) (last|previous)|go back)\b/i.test(text);
+  const t = (text || '').trim();
+  return /\b(undo|revert|put it back|restore (the|my) (last|previous)|go back)\b/i.test(t) && t.split(/\s+/).length <= 8;
 }
 async function send(text) {
   text = (text || '').trim();
@@ -2665,7 +2830,7 @@ async function importResume(kind, payload, label, fileMeta) {
     const nr = norm(out && out.resume ? out.resume : out);
     if (isEmpty(nr)) throw { userMsg: 'I could not find resume content in that. Try pasting the text instead.' };
     st.prev = []; st.versions = []; st.hlBase = null; st.fresh = false; st.resume = nr; st.ats = null; st.improve = null; st.atsImprove = null;
-    st.builder = false; // uploading/pasting an actual resume supersedes the guided "start from scratch" flow, if it was active
+    st.builder = false; st.builderPhase = null; st.builderDraft = null; // uploading/pasting an actual resume supersedes the guided "start from scratch" flow, if it was active
     st.importMeta = fileMeta || null; // real, measured file-level facts (page count, reading order, etc.) — null when the resume was typed/pasted, not uploaded as a file
     snapshotVersion('Original Resume');
     const gaps = computeATSCompatibility(nr, st.importMeta).allTests.filter(t => t.status === 'FAIL').slice(0, 3).map(t => t.description.toLowerCase());
@@ -3209,7 +3374,10 @@ function meterHtml(score) { const on = Math.round(score / 10); return Array.from
 function renderAll() { renderChat(); renderChips(); renderPaper(); renderToolbar(); renderAts(); updateAvail(); }
 function updateAvail() {
   const b = $('#banner');
-  if (st.builder) { b.hidden = false; b.textContent = builderBannerText(); } else b.hidden = true;
+  // No banner while the structured composer itself is showing (its own heading already
+  // says what's happening) — only once handed off to ordinary follow-up chat.
+  if (st.builder && st.builderPhase === 'chat') { b.hidden = false; b.textContent = builderBannerText(); } else b.hidden = true;
+  renderBuilderForm();
   $('#send').disabled = false;
 }
 
@@ -3245,6 +3413,7 @@ function wire() {
   $('#file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; handleFile(f); });
   $('#pasteBtn').addEventListener('click', openPaste); $('#emPaste').addEventListener('click', openPaste);
   $('#emTell').addEventListener('click', startBuilder);
+  $('#bfSubmit').addEventListener('click', submitBuilderForm);
   $('#pasteCancel').addEventListener('click', closePaste);
   $('#pasteGo').addEventListener('click', () => { const t = $('#pasteTxt').value.trim(); if (t.length < 40) { toast('Paste a bit more text.'); return; } closePaste(); $('#pasteTxt').value = ''; importResume('text', t, 'Reading the text you pasted'); });
   const left = $('.left');
