@@ -158,6 +158,8 @@ svg.ic{flex:none}
 .iconbtn.mic.recording::after{content:"";position:absolute;inset:-4px;border-radius:12px;border:2px solid var(--bad);opacity:.5;animation:micpulse 1.4s ease-out infinite;pointer-events:none}
 @keyframes micpulse{0%{transform:scale(.85);opacity:.6}100%{transform:scale(1.25);opacity:0}}
 @media (prefers-reduced-motion: reduce){.iconbtn.mic.recording::after{animation:none;opacity:0}}
+.mic-status{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#micCancel{color:var(--bad)}
 .btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:9px 16px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:transform .15s ease,box-shadow .15s ease,filter .15s}
 .btn:hover:not(:disabled){filter:brightness(1.07)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
@@ -669,6 +671,8 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
           <div class="bar">
             <div class="tools">
               <button class="iconbtn mic" id="micBtn" type="button" data-ic="mic" title="Speak your message" aria-label="Speak your message" aria-pressed="false" hidden></button>
+              <button class="iconbtn" id="micCancel" type="button" title="Discard this recording" hidden>Cancel</button>
+              <span class="mic-status" id="micStatus" aria-live="polite" hidden></span>
               <button class="iconbtn" id="attach" type="button" data-ic="clip" title="Upload resume (PDF, Word, text or photo)"><span>Upload</span></button>
               <button class="iconbtn" id="pasteBtn" type="button" data-ic="clipboard" title="Paste resume text"><span>Paste</span></button>
             </div>
@@ -2895,98 +2899,130 @@ async function resumeAction(a) {
 function closeMenus() { ['#rsMenu', '#acctMenu', '#dlMenu'].forEach(s => { $(s).hidden = true; }); ['#rsBtn', '#acctBtn', '#dlBtn'].forEach(s => $(s).setAttribute('aria-expanded', 'false')); }
 function toggleMenu(menu, btn) { const open = $(menu).hidden; closeMenus(); $(menu).hidden = !open; $(btn).setAttribute('aria-expanded', String(open)); }
 
-/* ---------- voice input (browser Speech Recognition, optional) ---------- */
-// Chrome's SpeechRecognition engine silently stops a "continuous" session after a period
-// of silence or a long run, independent of our own voice.on flag — and immediately after
-// that happens, the underlying native object is still mid-teardown for a brief moment, so
-// calling .start() again right away throws InvalidStateError synchronously (the "Could not
-// start voice input" failure). Reusing one long-lived recognizer across the whole page
-// session made this worse: once that object's internal state got out of sync, every future
-// click kept failing. Fix: build a brand-new recognizer each time the mic is started (so a
-// stale internal state from a previous run can never leak into the next one), and retry once
-// automatically after a short delay before showing the user an error.
-const voice = { rec: null, on: false, supported: false, starting: false, baseText: '', finalAdded: '' };
-function makeRecognizer() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const rec = new SR();
-  rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 1;
-  // en-IN (vs. the default en-US) is still a single fixed English dialect under the hood —
-  // the browser's built-in engine cannot switch languages mid-utterance, so it does not give
-  // real Tamil or Tamil-English code-switching recognition. It's set only because it tends to
-  // transcribe Indian-accented English speech more accurately than en-US. True Tanglish/Tamil
-  // support needs a different, non-browser speech-to-text service — see the note sent with
-  // this change for what that would involve.
-  try { rec.lang = 'en-IN'; } catch (e) {}
-  rec.onresult = e => {
-    // Root cause of the "I I I want I want I want to..." bug: this used to start the loop
-    // at e.resultIndex and APPEND each new isFinal chunk onto voice.finalAdded with +=. That
-    // is only safe if a browser's SpeechRecognition implementation (a) never re-finalizes an
-    // index it already finalized, and (b) always advances resultIndex past settled results.
-    // On this device's engine, neither held: it kept re-firing isFinal=true on a *growing
-    // prefix* of the same utterance ("I" -> "I want" -> "I want to" -> ...), and each growing
-    // version got appended on top of the last instead of replacing it. Fix: every result slot
-    // is independently idempotent (once isFinal, its transcript text is stable), so rebuild
-    // the full finalized transcript FROM SCRATCH on every event, starting at index 0, instead
-    // of trusting resultIndex to tell us what's "new". This can never duplicate, regardless
-    // of how a given browser chooses to re-send results.
-    let finalText = '', interim = '';
-    for (let i = 0; i < e.results.length; i++) {
-      const r = e.results[i], chunk = String(r[0].transcript || '').trim();
-      if (!chunk) continue;
-      if (r.isFinal) finalText += (finalText ? ' ' : '') + chunk;
-      else interim += (interim ? ' ' : '') + chunk;
-    }
-    voice.finalAdded = finalText;
-    const t = $('#inp');
-    const joined = (voice.baseText + (voice.baseText && (voice.finalAdded || interim) ? ' ' : '') + voice.finalAdded + (interim ? (voice.finalAdded ? ' ' : '') + interim : '')).replace(/\s+/g, ' ');
-    t.value = joined; autosize();
-  };
-  rec.onerror = ev => {
-    const wasOn = voice.on; stopVoice();
-    if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') toast('Microphone access was blocked. Allow it in your browser settings to use voice input.');
-    else if (ev.error === 'no-speech') toast('I did not catch anything. Try speaking again.');
-    else if (ev.error === 'audio-capture') toast('No microphone found. Check that one is connected.');
-    else if (ev.error !== 'aborted' && wasOn) toast('Voice input stopped. Please try again.');
-  };
-  rec.onend = () => { if (voice.on) setMic(false); };
-  return rec;
+/* ---------- voice input (record audio, transcribe server-side with Groq Whisper) ----------
+   The browser's own built-in SpeechRecognition (the old approach here) is a single fixed
+   language per session with NO code-switching support in any browser's implementation —
+   it cannot handle Tamil, or Tamil-English mixed speech, at all, no matter how it's tuned,
+   and on some devices it also re-sends growing partial transcripts as "final" results,
+   which was the cause of the earlier "I I I want I want..." duplication bug.
+   This replaces it entirely: the mic now records real audio (MediaRecorder) and uploads the
+   finished clip to this app's own server, which transcribes it with Whisper through the
+   existing Groq account (see lib/ai.js's transcribeHandler / POST /api/voice/transcribe) —
+   a genuine multilingual speech model, not a browser-language guess. The trade-off: this is
+   "record, then get one transcript back" rather than live word-by-word captions while you
+   talk, since Whisper doesn't stream — the status text below makes that wait explicit instead
+   of pretending it's instant. Either way, the transcript lands in the message box for you to
+   review and edit — it is never sent automatically. */
+const voice = {
+  supported: false, stream: null, recorder: null, chunks: [], mime: '',
+  state: 'idle', // 'idle' | 'recording' | 'processing'
+  baseText: '', startedAt: 0, timerT: null, cancelled: false
+};
+function micSupported() { return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder); }
+function pickMime() {
+  const cands = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+  for (const c of cands) { try { if (window.MediaRecorder.isTypeSupported(c)) return c; } catch (e) {} }
+  return '';
 }
 function initVoice() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const btn = $('#micBtn');
-  if (!SR || !btn) return; // unsupported: button stays hidden, app works normally
+  if (!micSupported() || !btn) return; // unsupported: button stays hidden, app works normally
   voice.supported = true; btn.hidden = false;
-  btn.addEventListener('click', () => { if (voice.on) stopVoice(); else startVoice(); });
+  btn.addEventListener('click', () => {
+    if (voice.state === 'recording') stopVoice(false);
+    else if (voice.state === 'idle') startVoice();
+    // state === 'processing': ignore — the button is disabled for the whole round trip.
+  });
+  const cancelBtn = $('#micCancel');
+  if (cancelBtn) cancelBtn.addEventListener('click', () => stopVoice(true));
 }
-function setMic(on) {
-  voice.on = on; const btn = $('#micBtn'); if (!btn) return;
-  btn.classList.toggle('recording', on); btn.setAttribute('aria-pressed', String(on));
-  btn.title = on ? 'Stop recording' : 'Speak your message';
-  $('#composer').classList.toggle('listening', on);
-}
-function startVoice(isRetry) {
-  if (!voice.supported || voice.on || voice.starting || st.busy) return;
-  voice.starting = true;
-  const t = $('#inp');
-  if (!isRetry) { voice.baseText = t.value.trim(); voice.finalAdded = ''; }
-  // Always start from a fresh recognizer instance — never reuse one that may still be
-  // tearing down from a previous session (see the comment above voice's declaration).
-  try { if (voice.rec) voice.rec.abort(); } catch (e) {}
-  voice.rec = makeRecognizer();
-  try {
-    voice.rec.start(); voice.starting = false; setMic(true); t.focus();
-  } catch (e) {
-    voice.starting = false;
-    if (!isRetry) { setTimeout(() => startVoice(true), 250); return; }
-    setMic(false); toast('Could not start voice input. Try again.');
+function setMicUI() {
+  const btn = $('#micBtn'), cancelBtn = $('#micCancel'), status = $('#micStatus');
+  if (!btn) return;
+  const recording = voice.state === 'recording', processing = voice.state === 'processing';
+  btn.classList.toggle('recording', recording);
+  btn.setAttribute('aria-pressed', String(recording));
+  btn.disabled = processing || st.busy;
+  btn.title = recording ? 'Stop and transcribe' : processing ? 'Transcribing…' : 'Speak your message';
+  $('#composer').classList.toggle('listening', recording);
+  if (cancelBtn) cancelBtn.hidden = !recording;
+  if (status) {
+    if (processing) { status.hidden = false; status.textContent = 'Understanding your message…'; }
+    else if (!recording) status.hidden = true;
+    // the 'recording' case sets its own live-updating text in tickTimer()
   }
 }
-function stopVoice() {
-  voice.starting = false;
-  if (!voice.rec) { setMic(false); return; }
-  const wasOn = voice.on; setMic(false);
-  try { voice.rec.stop(); } catch (e) {}
-  if (wasOn) $('#inp').focus();
+function tickTimer() {
+  clearTimeout(voice.timerT);
+  if (voice.state !== 'recording') return;
+  const status = $('#micStatus');
+  const secs = Math.floor((Date.now() - voice.startedAt) / 1000);
+  if (status) { status.hidden = false; status.textContent = 'Recording ' + Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0') + ' — tap mic to finish'; }
+  // A hard ceiling so a forgotten-open mic doesn't record indefinitely or build an upload
+  // too large for the server's request-size limit (see MAX_AUDIO_BYTES in lib/ai.js).
+  if (secs >= 5 * 60) { stopVoice(false); return; }
+  voice.timerT = setTimeout(tickTimer, 1000);
+}
+function stopStream() {
+  if (voice.stream) { voice.stream.getTracks().forEach(tr => { try { tr.stop(); } catch (e) {} }); voice.stream = null; }
+}
+async function startVoice() {
+  if (!voice.supported || voice.state !== 'idle' || st.busy) return;
+  voice.baseText = $('#inp').value; voice.chunks = []; voice.cancelled = false;
+  try { voice.stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch (e) {
+    toast(e && e.name === 'NotAllowedError'
+      ? 'Microphone access was blocked. Allow it in your browser settings to use voice input.'
+      : 'Could not access your microphone. Check that one is connected.');
+    return;
+  }
+  voice.mime = pickMime();
+  try { voice.recorder = voice.mime ? new MediaRecorder(voice.stream, { mimeType: voice.mime }) : new MediaRecorder(voice.stream); }
+  catch (e) { stopStream(); toast('Could not start voice input. Try again.'); return; }
+  voice.recorder.ondataavailable = ev => { if (ev.data && ev.data.size) voice.chunks.push(ev.data); };
+  voice.recorder.onstop = onRecordingStopped;
+  voice.recorder.onerror = () => { toast('Voice input stopped. Please try again.'); voice.cancelled = true; try { voice.recorder.stop(); } catch (e) { onRecordingStopped(); } };
+  voice.recorder.start();
+  voice.state = 'recording'; voice.startedAt = Date.now();
+  setMicUI(); tickTimer();
+}
+function stopVoice(cancel) {
+  clearTimeout(voice.timerT);
+  if (voice.state !== 'recording') { if (voice.state === 'idle') setMicUI(); return; }
+  voice.cancelled = !!cancel;
+  try { voice.recorder.stop(); } catch (e) { onRecordingStopped(); }
+}
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => { const s = String(fr.result || ''); resolve(s.slice(s.indexOf(',') + 1)); };
+    fr.onerror = () => reject(new Error('read_failed'));
+    fr.readAsDataURL(blob);
+  });
+}
+async function onRecordingStopped() {
+  stopStream();
+  if (voice.cancelled) { voice.state = 'idle'; voice.chunks = []; setMicUI(); $('#inp').focus(); return; }
+  if (!voice.chunks.length) { voice.state = 'idle'; setMicUI(); toast('I did not catch anything. Try speaking again.'); return; }
+  voice.state = 'processing'; setMicUI();
+  const blob = new Blob(voice.chunks, { type: voice.mime || 'audio/webm' });
+  voice.chunks = [];
+  try {
+    const b64 = await blobToBase64(blob);
+    const r = await api('POST', '/api/voice/transcribe', { audio: b64, mime: blob.type, prompt: 'Resume details: name, education, college, skills, work experience, projects.' });
+    const text = ((r && r.text) || '').trim();
+    if (text) {
+      const t = $('#inp'), sep = voice.baseText && !/\s$/.test(voice.baseText) ? ' ' : '';
+      t.value = (voice.baseText + sep + text).trim();
+      autosize();
+    } else {
+      toast('I did not catch anything clearly. Try speaking again, a bit closer to the mic.');
+    }
+  } catch (e) {
+    toast((e && e.message) || 'Could not transcribe that recording. Please try again.');
+  } finally {
+    voice.state = 'idle'; setMicUI(); $('#inp').focus();
+  }
 }
 
 /* ---------- helpers ---------- */
@@ -3037,7 +3073,7 @@ function renderChat() {
   $('#send').innerHTML = ic(st.busy ? 'stop' : 'send') + '<span>' + (st.busy ? 'Stop' : 'Send') + '</span>';
   $('#inp').disabled = st.busy; $('#chips').hidden = st.busy; $('#prog').hidden = !st.busy;
   if ($('#micBtn')) $('#micBtn').disabled = st.busy;
-  if (st.busy && voice.on) stopVoice();
+  if (st.busy && voice.state === 'recording') stopVoice(true);
 }
 function renderChips() {
   const items = isEmpty(st.resume)
@@ -3166,7 +3202,7 @@ function localUndoMatch(text) {
 async function send(text) {
   text = (text || '').trim();
   if (!text || st.busy) return;
-  if (voice.on) stopVoice();
+  if (voice.state === 'recording') stopVoice(true);
   if (localUndoMatch(text) && st.prev.length) {
     st.chat.push({ role: 'user', text }); $('#inp').value = ''; autosize(); setView('chat');
     undo();
