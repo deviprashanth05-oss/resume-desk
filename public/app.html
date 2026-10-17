@@ -441,6 +441,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
    one-question-at-a-time chat opening) — lives inside #paneChat, in the same spot
    #msgs/#composer normally occupy, toggled by renderBuilderForm(). ---- */
 .bform{flex:1;min-height:0;overflow:auto;padding:14px 14px 10px}
+.bform-back{margin-bottom:10px}
 .bform-head h3{margin:0 0 4px;font:400 22px/1.2 var(--serif)}
 .bform-head .sub{margin:0 0 16px;color:var(--muted);font-size:13.5px}
 .bform-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
@@ -650,6 +651,7 @@ dialog .row{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
         <div class="banner" id="banner" hidden></div>
         <div class="bform" id="builderForm" hidden>
           <div class="bform-head">
+            <button class="btn ghost sm bform-back" id="bfBack" type="button">&larr; Back</button>
             <h3>Build your resume</h3>
             <p class="sub">Fill in your details below. Your resume will be created automatically.</p>
           </div>
@@ -2431,6 +2433,16 @@ function startBuilder() {
   setView('chat'); openBuilderForm(); renderAll(); save();
   const nameEl = $('#bfName'); if (nameEl) nameEl.focus();
 }
+// Leaves the guided "Start from scratch" form and returns to the welcome screen
+// (Upload / Paste / Template / Start from scratch), e.g. if someone opened this by
+// mistake and actually wants to upload a file or paste text instead. Only valid while
+// the resume is still empty — if real content already exists (e.g. they already
+// submitted once), there's no "back" to an empty welcome screen, so the button is
+// hidden in that case (see renderBuilderForm()).
+function cancelBuilder() {
+  st.builder = false; st.builderPhase = null; st.builderDraft = null;
+  setView('resume'); renderAll(); save();
+}
 function builderFormActive() { return st.builder && st.builderPhase === 'form'; }
 // Toggles the structured composer vs. the ordinary #msgs/#chips/#composer chat UI.
 // Called from updateAvail() (part of renderAll()) so it always reflects current state.
@@ -2439,6 +2451,11 @@ function renderBuilderForm() {
   const f = $('#builderForm'); if (f) f.hidden = !show;
   $('#msgs').hidden = show; $('#chips').hidden = show || st.busy; $('#composer').hidden = show;
   const submitBtn = $('#bfSubmit'); if (submitBtn) submitBtn.disabled = st.busy;
+  // "Back" only makes sense while there's nothing saved yet to lose — once a real resume
+  // exists (e.g. this form was already submitted once and is being revisited), there's no
+  // empty welcome screen to go "back" to, so the button is hidden rather than shown and
+  // then doing something confusing.
+  const backBtn = $('#bfBack'); if (backBtn) backBtn.hidden = !isEmpty(st.resume);
 }
 function bfVal(id) { const el = $(id); return el ? el.value.trim() : ''; }
 function builderFormValues() {
@@ -4069,6 +4086,7 @@ function wire() {
   $('#file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; handleFile(f); });
   $('#pasteBtn').addEventListener('click', openPaste); $('#emPaste').addEventListener('click', openPaste);
   $('#emTell').addEventListener('click', startBuilder);
+  $('#bfBack').addEventListener('click', cancelBuilder);
   $('#emTemplate').addEventListener('click', () => openTplGallery('select'));
   $('#readyContinue').addEventListener('click', closeReadyDlg);
   $('#readyPreviewBtn').addEventListener('click', () => { closeReadyDlg(); openPreview(); });
