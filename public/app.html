@@ -148,6 +148,13 @@ svg.ic{flex:none}
 .composer textarea{width:100%;border:0;background:none;resize:none;outline:0;min-height:22px;max-height:160px;padding:2px 2px 6px;font-size:16px;line-height:1.4}
 .composer textarea::placeholder{font-size:13.5px}
 .composer .bar{display:flex;align-items:center;justify-content:space-between;gap:8px}
+/* .tools and .mic-status default to a flex min-width equal to their own full content width,
+   which is what let a long "Recording 0:06 — tap mic to finish" status plus the Upload/Paste
+   buttons push the whole bar wider than the phone screen, shoving the Send button off the
+   right edge (only visible by zooming out). min-width:0 lets them actually shrink to the
+   space available instead of forcing an overflow, and .mic-status's existing ellipsis then
+   has room to do its job; #send stays flex:none so it is never the thing that gets squeezed. */
+.tools{min-width:0;flex:1 1 auto}
 .tools{display:flex;gap:4px;align-items:center}
 .iconbtn{background:none;border:0;border-radius:10px;padding:7px 10px;color:var(--muted);font-size:12.5px;display:inline-flex;gap:6px;align-items:center;transition:color .15s,background .15s,transform .12s}
 .iconbtn:hover:not(:disabled){color:var(--ink);background:var(--tint)}
@@ -158,8 +165,9 @@ svg.ic{flex:none}
 .iconbtn.mic.recording::after{content:"";position:absolute;inset:-4px;border-radius:12px;border:2px solid var(--bad);opacity:.5;animation:micpulse 1.4s ease-out infinite;pointer-events:none}
 @keyframes micpulse{0%{transform:scale(.85);opacity:.6}100%{transform:scale(1.25);opacity:0}}
 @media (prefers-reduced-motion: reduce){.iconbtn.mic.recording::after{animation:none;opacity:0}}
-.mic-status{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#micCancel{color:var(--bad)}
+.mic-status{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 auto}
+#micCancel{color:var(--bad);flex:none}
+.btn.send{flex:none}
 .btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:9px 16px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:transform .15s ease,box-shadow .15s ease,filter .15s}
 .btn:hover:not(:disabled){filter:brightness(1.07)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
@@ -2951,6 +2959,12 @@ function setMicUI() {
     else if (!recording) status.hidden = true;
     // the 'recording' case sets its own live-updating text in tickTimer()
   }
+  // Upload/Paste aren't meaningful mid-recording or mid-transcription, and hiding them frees
+  // up real width on a phone-width composer bar for the status text next to them instead of
+  // all of them being squeezed down to nothing at once.
+  const attachBtn = $('#attach'), pasteBtn = $('#pasteBtn');
+  if (attachBtn) attachBtn.hidden = recording || processing;
+  if (pasteBtn) pasteBtn.hidden = recording || processing;
 }
 function tickTimer() {
   clearTimeout(voice.timerT);
