@@ -2723,13 +2723,24 @@ function renderBilling() {
   q.classList.remove('low', 'trial-done', 'pro');
   const atLimit = !b.unlimited && b.resumesRemaining != null && b.resumesRemaining <= 0;
   if (b.unlimited) { q.textContent = 'Admin'; q.title = 'Admin access — no resume limit.'; q.classList.add('pro'); }
-  else {
-    const label = b.isPaid ? planLabel(b.plan) : 'Free';
+  else if (!b.isPaid) {
+    // Free plan: no running "0 of 1 used" counter — it reads like a metered product and
+    // creates pressure before a free user has even finished their first resume. Just name
+    // the plan; the moment they actually try to start a second resume and can't, the normal
+    // upgrade message (ERR.FREE_LIMIT_REACHED) explains why — that's the only place the
+    // 1-resume limit needs to be spelled out in numbers. The pill still tints at the limit
+    // as a quiet visual cue, just without printing a number.
+    q.textContent = 'Free plan';
+    q.title = 'Your Free plan includes one resume for the lifetime of your account.';
+    q.classList.toggle('low', atLimit);
+    q.classList.toggle('trial-done', atLimit);
+  } else {
+    const label = planLabel(b.plan);
     const usage = b.resumesAllocated != null && b.resumesRemaining != null
-      ? ((b.resumesAllocated - b.resumesRemaining) + ' of ' + b.resumesAllocated + ' resume' + (b.resumesAllocated === 1 ? '' : 's') + (b.isPaid ? ' this period' : ' used'))
+      ? ((b.resumesAllocated - b.resumesRemaining) + ' of ' + b.resumesAllocated + ' resume' + (b.resumesAllocated === 1 ? '' : 's') + ' this period')
       : '';
     q.textContent = label + (usage ? ' · ' + usage : '');
-    q.title = b.isPaid ? 'Resumes created this billing period.' : 'Your Free plan includes one resume for the lifetime of your account.';
+    q.title = 'Resumes created this billing period.';
     q.classList.toggle('low', atLimit);
     q.classList.toggle('trial-done', atLimit);
   }
